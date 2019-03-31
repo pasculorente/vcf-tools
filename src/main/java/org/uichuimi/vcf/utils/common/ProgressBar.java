@@ -1,4 +1,4 @@
-package org.uichuimi.vcf.utils;
+package org.uichuimi.vcf.utils.common;
 
 import java.util.Timer;
 import java.util.TimerTask;
@@ -8,7 +8,7 @@ public class ProgressBar {
 	private static final int MILLISECONDS_PER_HOUR = 3_600_000;
 	private static final int MILLISECONDS_PER_MINUTE = 60_000;
 
-	private final long start;
+	private long start = -1;
 
 	private final Timer timer = new Timer(true);
 	private double progress;
@@ -16,6 +16,9 @@ public class ProgressBar {
 
 
 	public ProgressBar() {
+	}
+
+	public long start() {
 		start = System.nanoTime();
 		timer.schedule(new TimerTask() {
 			@Override
@@ -23,6 +26,7 @@ public class ProgressBar {
 				print();
 			}
 		}, 250, 250);
+		return start;
 	}
 
 	private void print() {
@@ -31,6 +35,7 @@ public class ProgressBar {
 	}
 
 	public void update(double progress, String message) {
+		if (start < 0) start();
 		this.progress = progress;
 		this.message = message;
 	}

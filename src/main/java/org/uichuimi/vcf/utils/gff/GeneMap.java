@@ -1,6 +1,8 @@
-package org.uichuimi.vcf.utils;
+package org.uichuimi.vcf.utils.gff;
 
-import org.uichuimi.variant.io.vcf.Variant;
+import org.uichuimi.vcf.Variant;
+import org.uichuimi.vcf.utils.common.FileUtils;
+import org.uichuimi.vcf.variant.VariantContext;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -21,12 +23,13 @@ import java.util.Map;
  * taken from Ensebml. That means that resources using uniprot, Entrez Gene or HGNC identifiers will
  * not be linked properly. To this, links from un
  */
-public class GeneReader {
+public class GeneMap {
 
 	private Map<String, List<Gene>> chromosomes = new HashMap<>();
+	private Map<String, Transcript> transcripts = new HashMap<>();
+	private Map<String, Gene> geneMap = new HashMap<>();
 
-
-	public GeneReader(File path) {
+	public GeneMap(File path) {
 		readGenes(path);
 	}
 
@@ -38,6 +41,10 @@ public class GeneReader {
 				if (feature instanceof Gene) {
 					final Gene gene = (Gene) feature;
 					chromosomes.computeIfAbsent(gene.chromosome, c -> new ArrayList<>()).add(gene);
+					geneMap.put(gene.id, gene);
+				} else if (feature instanceof Transcript) {
+					final Transcript transcript = (Transcript) feature;
+					transcripts.put(transcript.id, transcript);
 				}
 			}
 
@@ -131,15 +138,29 @@ public class GeneReader {
 		}
 		if (typ == null) return null;
 		if (typ.equals("gene")) return new Gene(id, name, biotype, chrom, start, end);
-		else if (typ.equals("transcript")) return new Transcript(id, parent);
+		else if (typ.equals("transcript")) return new Transcript(id, typ, parent, biotype);
 		return null;
 	}
 
-	public Gene fromVariant(Variant variant) {
-		final List<Gene> genes = chromosomes.get(variant.getChrom());
+	public Transcript getTranscript(String transcriptId) {
+		return transcripts.get(transcriptId);
+	}
+
+	public Gene fromTranscript(String transcriptId) {
+		final Transcript transcript = transcripts.get(transcriptId);
+		return geneMap.get(transcript.geneId);
+	}
+
+	public Gene fromVariant(VariantContext variant) {
+		final List<Gene> genes = chromosomes.get(variant.getCoordinate().getChrom());
 		if (genes == null) return null;
-		final Gene gene = binarySearch(genes, variant.getPosition());
-		return gene;
+		return binarySearch(genes, variant.getCoordinate().getPosition());
+	}
+
+	public Gene fromVariant(Variant variant) {
+		final List<Gene> genes = chromosomes.get(variant.getCoordinate().getChrom());
+		if (genes == null) return null;
+		return binarySearch(genes, variant.getCoordinate().getPosition());
 	}
 
 	// Adapted from Collections#binarySearch
@@ -163,18 +184,38 @@ public class GeneReader {
 	private class Feature {
 	}
 
-	private class Transcript extends Feature {
+	public class Transcript extends Feature {
 
 		private String id;
+		private String type;
 		private String geneId;
+		private String biotype;
 
-		Transcript(String id, String geneId) {
+		Transcript(String id, String type, String geneId, String biotype) {
 			this.id = id;
+			this.type = type;
 			this.geneId = geneId;
+			this.biotype = biotype;
+		}
+
+		public String getId() {
+			return id;
+		}
+
+		public String getGeneId() {
+			return geneId;
+		}
+
+		public String getBiotype() {
+			return biotype;
+		}
+
+		public String getType() {
+			return type;
 		}
 	}
 
-	class Gene extends Feature implements Comparable<Gene> {
+	public class Gene extends Feature implements Comparable<Gene> {
 		private final String chromosome;
 		private final String id;
 		private final String name;

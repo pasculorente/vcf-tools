@@ -1,8 +1,7 @@
-package org.uichuimi.vcf.utils;
+package org.uichuimi.vcf.utils.common;
 
 import java.io.*;
-import java.util.zip.GZIPInputStream;
-import java.util.zip.ZipInputStream;
+import java.util.zip.*;
 
 public class FileUtils {
 
@@ -12,7 +11,9 @@ public class FileUtils {
 
 	public static InputStream getInputStream(File file) throws IOException {
 		if (file.getName().endsWith(".zip")) {
-			return new ZipInputStream(new FileInputStream(file));
+			final ZipFile zipFile = new ZipFile(file);
+			final ZipEntry zipEntry = zipFile.entries().nextElement();
+			return zipFile.getInputStream(zipEntry);
 		} else if (file.getName().endsWith(".gz")) {
 			return new GZIPInputStream(new FileInputStream(file));
 		} else return new FileInputStream(file);
@@ -25,5 +26,13 @@ public class FileUtils {
 			e.printStackTrace();
 		}
 		return 0;
+	}
+
+	public static OutputStream getOutputStream(File file) throws IOException {
+		if (file.getName().endsWith(".zip")) {
+			return new ZipOutputStream(new FileOutputStream(file));
+		} else if (file.getName().endsWith(".gz")) {
+			return new GZIPOutputStream(new FileOutputStream(file));
+		} else return new FileOutputStream(file);
 	}
 }

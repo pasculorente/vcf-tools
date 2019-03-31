@@ -1,8 +1,10 @@
-package org.uichuimi.vcf.utils;
+package org.uichuimi.vcf.utils.common;
 
-import org.uichuimi.variant.io.vcf.Coordinate;
+import org.uichuimi.vcf.variant.Coordinate;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -13,6 +15,11 @@ public class GenomeProgress {
 	private final static Map<String, Long> map = new HashMap<>();
 	private final static Map<String, Long> abs = new HashMap<>();
 	private final static Long total;
+	private static List<String> STANDARD_CHROMOSOMES = Arrays.asList(
+			"1", "2", "3", "4", "5", "6", "7", "8", "9", "10",
+			"11", "12", "13", "14", "15", "16", "17", "18", "19", "20",
+			"21", "22", "X", "Y", "MT");
+
 	static {
 		map.put("1", 248_956_422L);
 		map.put("2", 242_193_529L);
@@ -40,7 +47,7 @@ public class GenomeProgress {
 		map.put("Y", 57_227_415L);
 		map.put("MT", 16_569L);
 		long t = 0L;
-		for (String chromosome : Constants.STANDARD_CHROMOSOMES) {
+		for (String chromosome : STANDARD_CHROMOSOMES) {
 			abs.put(chromosome, t);
 			t += map.get(chromosome);
 		}
