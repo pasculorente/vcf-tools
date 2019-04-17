@@ -19,6 +19,11 @@ import java.util.concurrent.Callable;
 import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
 
+/**
+ * Allows the annotation of VCF files with VEP and 1000Genomes. Input must be 1 or more VCF files, Output to a VCF file
+ * or neo4j tables (3rd normal form). It is encouraged to used the Ensembl reference genome (GRCh38), although UCSC
+ * genome should work as well.
+ */
 @Command(name = "annotate", description = "annotates vcf files using VEP, 1kg and other resources")
 public class VariantContextAnnotator implements Callable<Void> {
 
@@ -49,8 +54,11 @@ public class VariantContextAnnotator implements Callable<Void> {
 			description = "Path to output folder of neo4j CSV files")
 	private File neo4j;
 
+	@Option(names = {"--compute-stats"}, description = "Whether to compute DP, AN, AC and AF again.")
+	private boolean compute;
+
 	@Override
-	public Void call() {
+	public Void call() throws Exception {
 
 		final List<VariantConsumer> consumers = new ArrayList<>();
 		final ProgressBar bar = new ProgressBar();
@@ -71,6 +79,10 @@ public class VariantContextAnnotator implements Callable<Void> {
 			if (neo4j != null) {
 				System.out.println(" - Tables for neo4j into " + neo4j);
 				consumers.add(new Neo4jTablesWriter(neo4j));
+			}
+			if (compute) {
+				System.out.println(" - DP, AD, AC and AN will be recomputed");
+				consumers.add(new StatsCalculator());
 			}
 			if (output != null) {
 				System.out.println(" - Export VCF into " + output);
@@ -102,8 +114,7 @@ public class VariantContextAnnotator implements Callable<Void> {
 			// Close consumers
 			bar.update(0.99, "Closing consumers...");
 		} catch (Exception e) {
-			System.err.println("At line " + c);
-			e.printStackTrace();
+			throw new Exception("At line " + c, e);
 		} finally {
 			consumers.forEach(VariantConsumer::close);
 

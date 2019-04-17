@@ -127,13 +127,29 @@ public class Neo4jTablesWriter implements VariantConsumer {
 			final String sample = header.getSamples().get(i);
 			final String gt = variant.getSampleInfo(i).getGlobal().getString("GT");
 			if (gt == null || gt.equals("./.") || gt.equals(".")) continue;
-			final Genotype genotype = Genotype.create(gt);
-			// AD has Number=., so it is in global
-			final Object[] ad = variant.getSampleInfo(i).getGlobal().getArray("AD");
-			final String aad = ad == null ? "0,0" : String.format("%s,%s", ad[r], ad[absoluteA]);
+
+			// AD has Number=R
+			final String aad;
+			final Number ad1 = variant.getSampleInfo(i).getAllele(r).getNumber("AD");
+			if (ad1 != null) {
+				final Number ad2 = variant.getSampleInfo(i).getAllele(absoluteA).getNumber("AD");
+				aad = String.format("%d,%d", ad1.intValue(), ad2.intValue());
+			} else {
+				// AD has Number=., so it is in global
+				final Object[] ad = variant.getSampleInfo(i).getGlobal().getArray("AD");
+				if (ad == null) aad = "0,0";
+				else {
+					// We take the first and the last AD, since we do not know which are the corresponding alleles
+					final int rd = (int) ad[0];
+					final int altD = (int) ad[ad.length - 1];
+					aad = String.format("%s,%s", rd, altD);
+				}
+			}
 			// DP has Number=1, we take it from global
 			String dp = variant.getSampleInfo(i).getGlobal().getString("DP");
 			if (dp == null) dp = "0";
+
+			final Genotype genotype = Genotype.create(gt);
 			if (genotype.getA() == r && genotype.getB() == r)
 				wildtype.write(sample, variantId, aad, dp);
 			else if (genotype.getA() == absoluteA && genotype.getB() == absoluteA)
