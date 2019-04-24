@@ -89,7 +89,7 @@ class VariantContextAnnotator implements Callable<Void> {
 			}
 			if (gnomadExomes != null) {
 				System.out.println(" - Adding gnomAD exomes frequencies from " + gnomadExomes);
-				consumers.add(new GnomadGenomeAnnotator(gnomadExomes));
+				consumers.add(new GnomadExomeAnnotator(gnomadExomes));
 			}
 			// 2. Modifier consumers
 			if (compute) {

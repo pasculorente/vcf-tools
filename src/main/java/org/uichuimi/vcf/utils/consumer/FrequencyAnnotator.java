@@ -67,8 +67,10 @@ public abstract class FrequencyAnnotator implements VariantConsumer {
 
 	@Override
 	public void accept(VariantContext variant, Coordinate grch38) {
-		openReader(grch38);
+		openReader(grch38.getChrom());
+		if (reader == null) return;
 		final VariantContext annotated = reader.next(grch38);
+		if (annotated == null) return;
 		// Alleles present in both
 		final List<String> alleles = annotated.getAlternatives().stream()
 				.filter(variant.getAlternatives()::contains)
@@ -87,16 +89,16 @@ public abstract class FrequencyAnnotator implements VariantConsumer {
 	}
 
 
-	private void openReader(Coordinate coordinate) {
+	private void openReader(String chrom) {
 		// It's a file, no need to open readers
 		if (path == null) return;
 
 		// Open only if chromosome changes
-		if (openChromosome == null || !openChromosome.equals(coordinate.getChrom())) {
+		if (openChromosome == null || !openChromosome.equals(chrom)) {
 			reader = null;
 			// Even if opening the file fails, we keep a reference to the chromosome
-			openChromosome = coordinate.getChrom();
-			final String filename = getFileName(coordinate.getChrom());
+			openChromosome = chrom;
+			final String filename = getFileName(chrom);
 			final File file = new File(path, filename);
 			if (!file.exists()) {
 				// this can generate lots of warnings

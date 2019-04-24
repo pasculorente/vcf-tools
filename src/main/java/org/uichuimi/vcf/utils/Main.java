@@ -6,7 +6,8 @@ import java.util.concurrent.Callable;
 
 import static picocli.CommandLine.*;
 
-@Command(name = "vcf-utils", description = "umpteenth package with tools to work with vcf files",
+@Command(name = "vcf-utils",
+		description = "umpteenth package with tools to work with vcf files",
 		subcommands = VariantContextAnnotator.class)
 public class Main implements Callable<Void> {
 

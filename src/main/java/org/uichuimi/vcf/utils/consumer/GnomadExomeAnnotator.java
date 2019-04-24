@@ -6,7 +6,7 @@ import java.util.List;
 
 public class GnomadExomeAnnotator extends FrequencyAnnotator {
 
-	private final static String fileName = "gnomad.exomes.%s.vcf.gz";
+	private final static String fileName = "gnomad.exomes.chr%s.vcf.gz";
 
 	/**
 	 * @param gnomad a single vcf file, or a directory with one vcf per chromosome.
