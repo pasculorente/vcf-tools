@@ -26,7 +26,6 @@ import static picocli.CommandLine.Option;
 @Command(name = "annotate", description = "annotates vcf files using VEP, 1kg and other resources")
 class VariantContextAnnotator implements Callable<Void> {
 
-
 	@Option(names = {"--input", "-i"},
 			arity = "1..*",
 			description = "Input VCF files (can be compressed with gz or zip)",
@@ -53,9 +52,13 @@ class VariantContextAnnotator implements Callable<Void> {
 			description = "Path to output folder of neo4j CSV files")
 	private File neo4j;
 
-	@Option(names = {"--gnomad"},
-			description = "File with gnomAD frequencies (AF_[afr|amr|eas|nfe|fin|asj|oth])")
-	private File gnomad;
+	@Option(names = {"--gnomadGenomes", "--gnomad-genomes"},
+			description = "File with gnomAD genomes frequencies (AF_[afr|amr|eas|nfe|fin|asj|oth]). If it is a directory, then files must have the format gnomad.genomes.chr{}.vcf.gz")
+	private File gnomadGenomes;
+
+	@Option(names = {"--gnomadExomes", "--gnomad-exomes"},
+			description = "File with gnomAD exomes frequencies (AF_[afr|amr|asj|eas|fin|nfe|oth|sas]). If it is a directory, then files must have the format gnomad.exomes.chr{}.vcf.gz")
+	private File gnomadExomes;
 
 	@Option(names = {"--compute-stats"}, description = "Whether to compute DP, AN, AC and AF again.")
 	private boolean compute;
@@ -80,9 +83,13 @@ class VariantContextAnnotator implements Callable<Void> {
 				System.out.println("    - Genes are taken from " + genes);
 				consumers.add(new VepAnnotator(genes, vep));
 			}
-			if (gnomad != null) {
-				System.out.println(" - Adding gnomAD frequencies from " + gnomad);
-				consumers.add(new GnomadAnnotator(gnomad));
+			if (gnomadGenomes != null) {
+				System.out.println(" - Adding gnomAD genomes frequencies from " + gnomadGenomes);
+				consumers.add(new GnomadGenomeAnnotator(gnomadGenomes));
+			}
+			if (gnomadExomes != null) {
+				System.out.println(" - Adding gnomAD exomes frequencies from " + gnomadExomes);
+				consumers.add(new GnomadGenomeAnnotator(gnomadExomes));
 			}
 			// 2. Modifier consumers
 			if (compute) {
@@ -133,6 +140,5 @@ class VariantContextAnnotator implements Callable<Void> {
 		bar.stop();
 		return null;
 	}
-
 
 }

@@ -116,20 +116,29 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		);
 		// Frequencies (1000g)
 		for (String pop : Arrays.asList("EAS", "SAS", "EUR", "AFR", "AMR")) {
-			final Object score = info.get(pop + "_AF");
+			final Object score = info.get("KG_" + pop + "_AF");
 			if (score != null) {
 				final long id = frequencyId.incrementAndGet();
 				var2freq.write(variantId, id);
 				frequencies.write(id, "1000G", pop, score);
 			}
 		}
-		// Frequencies (gnomAD)
+		// Frequencies (gnomAD genomes)
 		for (String pop : Arrays.asList("AMR", "AFR", "EAS", "NFE", "FIN", "OTH", "ASJ")) {
-			final Object score = info.get("G_" + pop + "_AF");
+			final Object score = info.get("GG_" + pop + "_AF");
 			if (score != null) {
 				final long id = frequencyId.incrementAndGet();
 				var2freq.write(variantId, id);
-				frequencies.write(id, "gnomAD", pop, score);
+				frequencies.write(id, "gnomAD_genomes", pop, score);
+			}
+		}
+		// Frequencies (gnomAD exomes)
+		for (String pop : Arrays.asList("AFR", "AMR", "ASJ", "EAS", "FIN", "NFE", "OTH", "SAS")) {
+			final Object score = info.get("GE_" + pop + "_AF");
+			if (score != null) {
+				final long id = frequencyId.incrementAndGet();
+				var2freq.write(variantId, id);
+				frequencies.write(id, "gnomAD_exomes", pop, score);
 			}
 		}
 		// Samples
