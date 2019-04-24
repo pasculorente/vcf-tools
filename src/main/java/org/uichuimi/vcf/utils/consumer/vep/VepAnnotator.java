@@ -1,8 +1,8 @@
-package org.uichuimi.vcf.utils.vep;
+package org.uichuimi.vcf.utils.consumer.vep;
 
 import org.uichuimi.vcf.header.InfoHeaderLine;
 import org.uichuimi.vcf.header.VcfHeader;
-import org.uichuimi.vcf.utils.annotate.VariantConsumer;
+import org.uichuimi.vcf.utils.consumer.VariantConsumer;
 import org.uichuimi.vcf.utils.gff.GeneMap;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Info;
@@ -45,9 +45,9 @@ public class VepAnnotator implements VariantConsumer {
 	}
 
 	@Override
-	public void accept(VariantContext variant, Coordinate coordinate) {
+	public void accept(VariantContext variant, Coordinate grch38) {
 		// Add VEP annotations
-		final Collection<VariantContext> vepAnnotations = vepReader.getAnnotationList(coordinate);
+		final Collection<VariantContext> vepAnnotations = vepReader.getAnnotationList(grch38);
 		for (VariantContext vepAnnotation : vepAnnotations) annotateVep(variant, vepAnnotation, geneMap);
 
 
@@ -64,55 +64,55 @@ public class VepAnnotator implements VariantConsumer {
 				} else end = i;
 			}
 		}
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<String, String>() {{
+		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
 			put("ID", "Sift");
 			put("Number", "A");
 			put("Type", "String");
 			put("Description", "Sift prediction");
 		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<String, String>() {{
+		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
 			put("ID", "Polyphen");
 			put("Number", "A");
 			put("Type", "String");
 			put("Description", "Polyphen prediction");
 		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<String, String>() {{
+		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
 			put("ID", "CONS");
 			put("Number", "A");
 			put("Type", "String");
 			put("Description", "Ensembl VEP consequence");
 		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<String, String>() {{
+		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
 			put("ID", "BIO");
 			put("Number", "A");
 			put("Type", "String");
 			put("Description", "Gene biotype");
 		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<String, String>() {{
+		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
 			put("ID", "SYMBOL");
 			put("Number", "A");
 			put("Type", "String");
 			put("Description", "Gene symbol");
 		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<String, String>() {{
+		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
 			put("ID", "FT");
 			put("Number", "A");
 			put("Type", "String");
 			put("Description", "Feature type");
 		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<String, String>() {{
+		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
 			put("ID", "ENSG");
 			put("Number", "A");
 			put("Type", "String");
 			put("Description", "Ensembl gene id");
 		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<String, String>() {{
+		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
 			put("ID", "ENST");
 			put("Number", "A");
 			put("Type", "String");
 			put("Description", "Ensembl transcript id");
 		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<String, String>() {{
+		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
 			put("ID", "AMINO");
 			put("Number", "A");
 			put("Type", "String");
@@ -123,7 +123,7 @@ public class VepAnnotator implements VariantConsumer {
 	private void annotateVep(VariantContext variant, VariantContext vepAnnotation, GeneMap geneMap) {
 		// vepAnnotation has alleles, variant has alleles, we need to find those in both to collect the annotations
 		final List<String> alleles = vepAnnotation.getAlternatives().stream()
-				.filter(allele -> variant.getAlternatives().contains(allele))
+				.filter(variant.getAlternatives()::contains)
 				.collect(Collectors.toList());
 		if (alleles.isEmpty()) return;
 
@@ -172,7 +172,7 @@ public class VepAnnotator implements VariantConsumer {
 			alleles.computeIfAbsent(allele, a -> new ArrayList<>()).add(value);
 		}
 		alleles.forEach((index, values) -> {
-			final Integer i = Integer.valueOf(index);
+			final int i = Integer.parseInt(index);
 			final String allele = vepAnnotation.getAlternatives().get(i);
 			final int pos = variant.getAlternatives().indexOf(allele);
 			if (pos >= 0) {
@@ -215,7 +215,7 @@ public class VepAnnotator implements VariantConsumer {
 		final Map<String, List<String[]>> indexes = collectPredictions(siftInfo);
 
 		indexes.forEach((index, values) -> {
-			final Integer i = Integer.valueOf(index);
+			final int i = Integer.parseInt(index);
 			final String allele = vepAnnotation.getAlternatives().get(i);
 			final int pos = variant.getAlternatives().indexOf(allele);
 			if (pos >= 0) {
@@ -261,7 +261,7 @@ public class VepAnnotator implements VariantConsumer {
 		final Map<String, List<String[]>> indexes = collectPredictions(polyphen);
 
 		indexes.forEach((index, values) -> {
-			final Integer i = Integer.valueOf(index);
+			final int i = Integer.parseInt(index);
 			final String allele = vepAnnotation.getAlternatives().get(i);
 			final int pos = variant.getAlternatives().indexOf(allele);
 			if (pos >= 0) {

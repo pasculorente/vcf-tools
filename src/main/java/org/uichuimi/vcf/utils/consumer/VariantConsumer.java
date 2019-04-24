@@ -1,4 +1,4 @@
-package org.uichuimi.vcf.utils.annotate;
+package org.uichuimi.vcf.utils.consumer;
 
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.variant.Coordinate;
@@ -8,7 +8,7 @@ public interface VariantConsumer {
 
 	void start(VcfHeader header);
 
-	void accept(VariantContext variant, Coordinate coordinate);
+	void accept(VariantContext variant, Coordinate grch38);
 
 	void close();
 }

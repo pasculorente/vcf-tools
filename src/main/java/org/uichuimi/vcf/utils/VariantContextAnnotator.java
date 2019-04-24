@@ -1,13 +1,12 @@
-package org.uichuimi.vcf.utils.annotate;
+package org.uichuimi.vcf.utils;
 
 import org.uichuimi.vcf.input.MultipleVariantContextReader;
 import org.uichuimi.vcf.utils.common.CoordinateUtils;
 import org.uichuimi.vcf.utils.common.GenomeProgress;
 import org.uichuimi.vcf.utils.common.ProgressBar;
-import org.uichuimi.vcf.utils.kgenomes.KGenomesAnnotator;
-import org.uichuimi.vcf.utils.neo4j.Neo4jTablesWriter;
-import org.uichuimi.vcf.utils.output.VcfWriter;
-import org.uichuimi.vcf.utils.vep.VepAnnotator;
+import org.uichuimi.vcf.utils.consumer.*;
+import org.uichuimi.vcf.utils.consumer.neo4j.Neo4jTablesWriter;
+import org.uichuimi.vcf.utils.consumer.vep.VepAnnotator;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.VariantContext;
 
@@ -25,7 +24,7 @@ import static picocli.CommandLine.Option;
  * genome should work as well.
  */
 @Command(name = "annotate", description = "annotates vcf files using VEP, 1kg and other resources")
-public class VariantContextAnnotator implements Callable<Void> {
+class VariantContextAnnotator implements Callable<Void> {
 
 
 	@Option(names = {"--input", "-i"},
@@ -54,6 +53,10 @@ public class VariantContextAnnotator implements Callable<Void> {
 			description = "Path to output folder of neo4j CSV files")
 	private File neo4j;
 
+	@Option(names = {"--gnomad"},
+			description = "File with gnomAD frequencies (AF_[afr|amr|eas|nfe|fin|asj|oth])")
+	private File gnomad;
+
 	@Option(names = {"--compute-stats"}, description = "Whether to compute DP, AN, AC and AF again.")
 	private boolean compute;
 
@@ -66,6 +69,7 @@ public class VariantContextAnnotator implements Callable<Void> {
 		try (final MultipleVariantContextReader variantReader = MultipleVariantContextReader.getInstance(inputs)) {
 			System.out.printf("Found %d samples%n", variantReader.getHeader().getSamples().size());
 			// Create consumers depending on the options
+			// 1. Additive consumers
 			System.out.println("Adding consumers:");
 			if (kGenomes != null) {
 				System.out.println(" - 1000G frequencies from " + kGenomes);
@@ -76,13 +80,19 @@ public class VariantContextAnnotator implements Callable<Void> {
 				System.out.println("    - Genes are taken from " + genes);
 				consumers.add(new VepAnnotator(genes, vep));
 			}
-			if (neo4j != null) {
-				System.out.println(" - Tables for neo4j into " + neo4j);
-				consumers.add(new Neo4jTablesWriter(neo4j));
+			if (gnomad != null) {
+				System.out.println(" - Adding gnomAD frequencies from " + gnomad);
+				consumers.add(new GnomadAnnotator(gnomad));
 			}
+			// 2. Modifier consumers
 			if (compute) {
 				System.out.println(" - DP, AD, AC and AN will be recomputed");
 				consumers.add(new StatsCalculator());
+			}
+			// 3. Output consumers
+			if (neo4j != null) {
+				System.out.println(" - Tables for neo4j into " + neo4j);
+				consumers.add(new Neo4jTablesWriter(neo4j));
 			}
 			if (output != null) {
 				System.out.println(" - Export VCF into " + output);

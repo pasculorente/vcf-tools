@@ -1,8 +1,6 @@
 package org.uichuimi.vcf.utils.gff;
 
-import org.uichuimi.vcf.Variant;
 import org.uichuimi.vcf.utils.common.FileUtils;
-import org.uichuimi.vcf.variant.VariantContext;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -25,9 +23,9 @@ import java.util.Map;
  */
 public class GeneMap {
 
-	private Map<String, List<Gene>> chromosomes = new HashMap<>();
-	private Map<String, Transcript> transcripts = new HashMap<>();
-	private Map<String, Gene> geneMap = new HashMap<>();
+	private final Map<String, List<Gene>> chromosomes = new HashMap<>();
+	private final Map<String, Transcript> transcripts = new HashMap<>();
+	private final Map<String, Gene> geneMap = new HashMap<>();
 
 	public GeneMap(File path) {
 		readGenes(path);
@@ -151,45 +149,16 @@ public class GeneMap {
 		return geneMap.get(transcript.geneId);
 	}
 
-	public Gene fromVariant(VariantContext variant) {
-		final List<Gene> genes = chromosomes.get(variant.getCoordinate().getChrom());
-		if (genes == null) return null;
-		return binarySearch(genes, variant.getCoordinate().getPosition());
-	}
-
-	public Gene fromVariant(Variant variant) {
-		final List<Gene> genes = chromosomes.get(variant.getCoordinate().getChrom());
-		if (genes == null) return null;
-		return binarySearch(genes, variant.getCoordinate().getPosition());
-	}
-
-	// Adapted from Collections#binarySearch
-	private Gene binarySearch(List<Gene> list, int position) {
-		int low = 0;
-		int high = list.size() - 1;
-
-		while (low <= high) {
-			int mid = (low + high) >>> 1;
-			final Gene gene = list.get(mid);
-			int cmp = gene.compareTo(position);
-
-			if (cmp < 0) low = mid + 1;
-			else if (cmp > 0) high = mid - 1;
-			else return gene; // key found
-		}
-		return null;
-	}
-
 
 	private class Feature {
 	}
 
 	public class Transcript extends Feature {
 
-		private String id;
-		private String type;
-		private String geneId;
-		private String biotype;
+		private final String id;
+		private final String type;
+		private final String geneId;
+		private final String biotype;
 
 		Transcript(String id, String type, String geneId, String biotype) {
 			this.id = id;
@@ -202,17 +171,10 @@ public class GeneMap {
 			return id;
 		}
 
-		public String getGeneId() {
-			return geneId;
-		}
-
 		public String getBiotype() {
 			return biotype;
 		}
 
-		public String getType() {
-			return type;
-		}
 	}
 
 	public class Gene extends Feature implements Comparable<Gene> {
@@ -240,22 +202,6 @@ public class GeneMap {
 			return name;
 		}
 
-		public String getBiotype() {
-			return biotype;
-		}
-
-		public Integer getEnd() {
-			return end;
-		}
-
-		public Integer getStart() {
-			return start;
-		}
-
-		public String getChromosome() {
-			return chromosome;
-		}
-
 		@Override
 		public int compareTo(Gene other) {
 			if (other == this) return 0;
@@ -264,17 +210,6 @@ public class GeneMap {
 			return Integer.compare(end, other.end);
 		}
 
-		/**
-		 * Compares the current gene with the given position, returning the relative position of the
-		 * gene with respect to the position. If the gene has <code>start <= end < position</code>,
-		 * the result is < 0, if <code>position < start <= end</code>, result is > 0. If
-		 * <code>start<= position <= end</code> returns 0.
-		 */
-		int compareTo(int position) {
-			if (position < start) return 1;
-			if (end < position) return -1;
-			return 0;
-		}
 	}
 
 

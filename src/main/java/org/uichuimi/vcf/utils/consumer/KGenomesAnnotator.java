@@ -1,9 +1,8 @@
-package org.uichuimi.vcf.utils.kgenomes;
+package org.uichuimi.vcf.utils.consumer;
 
 import org.uichuimi.vcf.header.InfoHeaderLine;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.input.VariantContextReader;
-import org.uichuimi.vcf.utils.annotate.VariantConsumer;
 import org.uichuimi.vcf.utils.common.FileUtils;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Info;
@@ -20,7 +19,7 @@ public class KGenomesAnnotator implements VariantConsumer {
 
 	private final VariantContextReader reader;
 
-	public KGenomesAnnotator(InputStream inputStream) {
+	private KGenomesAnnotator(InputStream inputStream) {
 		reader = new VariantContextReader(inputStream);
 	}
 
@@ -44,31 +43,31 @@ public class KGenomesAnnotator implements VariantConsumer {
 				} else end = i;
 			}
 		}
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<String, String>() {{
+		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
 			put("ID", "AFR_AF");
 			put("Number", "A");
 			put("Type", "Float");
 			put("Description", "Allele frequency in African population (1000 Genomes Phase 3)");
 		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<String, String>() {{
+		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
 			put("ID", "AMR_AF");
 			put("Number", "A");
 			put("Type", "Float");
 			put("Description", "Allele frequency in American population (1000 Genomes Phase 3)");
 		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<String, String>() {{
+		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
 			put("ID", "EAS_AF");
 			put("Number", "A");
 			put("Type", "Float");
 			put("Description", "Allele frequency in East Asian population (1000 Genomes Phase 3)");
 		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<String, String>() {{
+		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
 			put("ID", "EUR_AF");
 			put("Number", "A");
 			put("Type", "Float");
 			put("Description", "Allele frequency in European population (1000 Genomes Phase 3)");
 		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<String, String>() {{
+		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
 			put("ID", "SAS_AF");
 			put("Number", "A");
 			put("Type", "Float");
@@ -77,8 +76,8 @@ public class KGenomesAnnotator implements VariantConsumer {
 	}
 
 	@Override
-	public void accept(VariantContext variant, Coordinate coordinate) {
-		final VariantContext kgAnnotation = reader.next(coordinate);
+	public void accept(VariantContext variant, Coordinate grch38) {
+		final VariantContext kgAnnotation = reader.next(grch38);
 		annotateFrequencies(variant, kgAnnotation);
 	}
 

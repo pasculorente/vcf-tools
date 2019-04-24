@@ -5,10 +5,24 @@ import java.util.zip.*;
 
 public class FileUtils {
 
+	/**
+	 * Interprets the file type by its extension and generates the proper BufferedInputStream.
+	 * Currently, it can open text files and gzipped and zipped text files.
+	 *
+	 * @param file file to read
+	 * @throws IOException if file does not exist or is not readable
+	 */
 	public static BufferedReader getBufferedReader(File file) throws IOException {
 		return new BufferedReader(new InputStreamReader(getInputStream(file)));
 	}
 
+	/**
+	 * Interprets the file type by its extension and generates the proper InputStream. Currently,
+	 * it can open text files and gzipped and zipped text files.
+	 *
+	 * @param file file to read
+	 * @throws IOException if file does not exist or is not readable
+	 */
 	public static InputStream getInputStream(File file) throws IOException {
 		if (file.getName().endsWith(".zip")) {
 			final ZipFile zipFile = new ZipFile(file);
@@ -28,6 +42,13 @@ public class FileUtils {
 		return 0;
 	}
 
+	/**
+	 * Interprets the file type by its extension and generates the proper OutputStream. Currently,
+	 * it can open text files and gzipped and zipped text files.
+	 *
+	 * @param file file to write
+	 * @throws IOException if file does not exist or is not writable
+	 */
 	public static OutputStream getOutputStream(File file) throws IOException {
 		if (file.getName().endsWith(".zip")) {
 			return new ZipOutputStream(new FileOutputStream(file));

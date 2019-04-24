@@ -18,7 +18,7 @@ public class ProgressBar {
 	public ProgressBar() {
 	}
 
-	public long start() {
+	public void start() {
 		start = System.nanoTime();
 		timer.schedule(new TimerTask() {
 			@Override
@@ -26,7 +26,6 @@ public class ProgressBar {
 				print();
 			}
 		}, 250, 250);
-		return start;
 	}
 
 	private void print() {
@@ -44,7 +43,7 @@ public class ProgressBar {
 		stop(message);
 	}
 
-	public void stop(String message) {
+	private void stop(String message) {
 		this.message = message;
 		timer.cancel();
 		print();

@@ -1,4 +1,4 @@
-package org.uichuimi.vcf.utils.annotate;
+package org.uichuimi.vcf.utils.consumer;
 
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.utils.Genotype;
@@ -19,7 +19,7 @@ public class StatsCalculator implements VariantConsumer {
 	}
 
 	@Override
-	public void accept(VariantContext variant, Coordinate coordinate) {
+	public void accept(VariantContext variant, Coordinate grch38) {
 		dp(variant);
 		ac(variant);
 //		qd(variant);
@@ -52,13 +52,13 @@ public class StatsCalculator implements VariantConsumer {
 		// Skip the reference allele, since AC has Number=A
 		for (int a = 1; a < ac.length; a++) {
 			variant.getInfo().getAllele(a).set("AC", ac[a]);
-			variant.getInfo().getAllele(a).set("AF", (double) ac[a] / an);
+			variant.getInfo().getAllele(a).set("AF", (float) ac[a] / an);
 		}
 
 	}
 
 	private void qd(VariantContext variant) {
-		final double qd = variant.getQuality() / variant.getInfo().getGlobal().getNumber("DP").intValue();
+		final float qd = (float) (variant.getQuality() / variant.getInfo().getGlobal().getNumber("DP").intValue());
 		variant.getInfo().getGlobal().set("QD", qd);
 	}
 

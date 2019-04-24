@@ -1,8 +1,7 @@
-package org.uichuimi.vcf.utils.output;
+package org.uichuimi.vcf.utils.consumer;
 
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.io.VariantContextWriter;
-import org.uichuimi.vcf.utils.annotate.VariantConsumer;
 import org.uichuimi.vcf.utils.common.FileUtils;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.VariantContext;
@@ -27,7 +26,7 @@ public class VcfWriter implements VariantConsumer {
 	}
 
 	@Override
-	public void accept(VariantContext variant, Coordinate coordinate) {
+	public void accept(VariantContext variant, Coordinate grch38) {
 		writer.write(variant);
 	}
 

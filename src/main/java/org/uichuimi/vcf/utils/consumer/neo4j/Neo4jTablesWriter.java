@@ -1,8 +1,8 @@
-package org.uichuimi.vcf.utils.neo4j;
+package org.uichuimi.vcf.utils.consumer.neo4j;
 
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.utils.Genotype;
-import org.uichuimi.vcf.utils.annotate.VariantConsumer;
+import org.uichuimi.vcf.utils.consumer.VariantConsumer;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Info;
 import org.uichuimi.vcf.variant.VariantContext;
@@ -20,13 +20,13 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p>
  * <ul>
  * <li><b>samples -> </b>id:ID(sample)</li>
- * <li><b>variant -> </b>:ID(variant), chrom, pos, ref[], alt[], rs[], sift[], polyphen[], effect[], amino[]</li>
- * <li><b>frequencies -> </b>:ID(freq), source, population, value:double[]</li>
+ * <li><b>variant -> </b>:ID(variant), chrom, pos, ref, alt, rs[], sift, polyphen, effect, amino</li>
+ * <li><b>frequencies -> </b>:ID(freq), source, population, value:double</li>
  * <li><b>var2freq -> </b>:START_ID(variant), :END_ID(freq)</li>
  * <li><b>var2gene -> </b>:START_ID(variant), :END_ID(gene)</li>
- * <li><b>homozygous -> </b>:START_ID(sample), :END_ID(variant), ad, dp:int</li>
- * <li><b>heterozygous -> </b>:START_ID(sample), :END_ID(variant), ad, dp:int</li>
- * <li><b>wildtype -> </b>:START_ID(sample), :END_ID(variant), ad, dp:int</li>
+ * <li><b>homozygous -> </b>:START_ID(sample), :END_ID(variant), ad[], dp:int</li>
+ * <li><b>heterozygous -> </b>:START_ID(sample), :END_ID(variant), ad[], dp:int</li>
+ * <li><b>wildtype -> </b>:START_ID(sample), :END_ID(variant), ad[], dp:int</li>
  * </ul>
  * <i>gene</i> refers to Ensembl gene identifier (ENSG0001234). This class is not responsible of the genes table.
  */
@@ -43,11 +43,12 @@ public class Neo4jTablesWriter implements VariantConsumer {
 	private VcfHeader header;
 
 
-	private AtomicLong frequencyId = new AtomicLong();
+	private final AtomicLong frequencyId = new AtomicLong();
 
 	public Neo4jTablesWriter(File path) throws IOException {
 
 		samples = new TableWriter(new File(path, "Persons.tsv"), Collections.singletonList("id:ID(sample)"));
+		samples.createIndex(0);
 
 		// (:Sample)-[:homozygous|heterozygous|wildtype]->(:Variant)
 		final List<String> columns = Arrays.asList(":START_ID(sample)", ":END_ID(variant)", "ad:int[]", "dp:int");
@@ -56,7 +57,7 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		wildtype = new TableWriter(new File(path, "wild.tsv"), columns);
 
 		// (:Variant)
-		final List<String> cols = new ArrayList<>(Arrays.asList(":ID(variant)", "chrom", "pos", "ref:string",
+		final List<String> cols = new ArrayList<>(Arrays.asList(":ID(variant)", "chrom", "pos:int", "ref:string",
 				"alt:string", "rs:string[]", "sift:string", "polyphen:string", "effect:string", "amino:string"));
 		variants = new TableWriter(new File(path, "Variants.tsv"), cols);
 
@@ -81,11 +82,11 @@ public class Neo4jTablesWriter implements VariantConsumer {
 	}
 
 	@Override
-	public void accept(VariantContext variant, Coordinate coordinate) {
+	public void accept(VariantContext variant, Coordinate grch38) {
 		try {
 			for (int r = 0; r < variant.getReferences().size(); r++)
 				for (int a = 0; a < variant.getAlternatives().size(); a++)
-					addSimplifiedVariant(variant, coordinate, r, a);
+					addSimplifiedVariant(variant, grch38, r, a);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -113,7 +114,7 @@ public class Neo4jTablesWriter implements VariantConsumer {
 				info.get("CONS"),
 				info.get("AMINO")
 		);
-		// Frequencies
+		// Frequencies (1000g)
 		for (String pop : Arrays.asList("EAS", "SAS", "EUR", "AFR", "AMR")) {
 			final Object score = info.get(pop + "_AF");
 			if (score != null) {
@@ -122,16 +123,25 @@ public class Neo4jTablesWriter implements VariantConsumer {
 				frequencies.write(id, "1000G", pop, score);
 			}
 		}
+		// Frequencies (gnomAD)
+		for (String pop : Arrays.asList("AMR", "AFR", "EAS", "NFE", "FIN", "OTH", "ASJ")) {
+			final Object score = info.get("G_" + pop + "_AF");
+			if (score != null) {
+				final long id = frequencyId.incrementAndGet();
+				var2freq.write(variantId, id);
+				frequencies.write(id, "gnomAD", pop, score);
+			}
+		}
 		// Samples
 		for (int i = 0; i < header.getSamples().size(); i++) {
 			final String sample = header.getSamples().get(i);
 			final String gt = variant.getSampleInfo(i).getGlobal().getString("GT");
 			if (gt == null || gt.equals("./.") || gt.equals(".")) continue;
 
-			// AD has Number=R
 			final String aad;
 			final Number ad1 = variant.getSampleInfo(i).getAllele(r).getNumber("AD");
 			if (ad1 != null) {
+				// AD has Number=R
 				final Number ad2 = variant.getSampleInfo(i).getAllele(absoluteA).getNumber("AD");
 				aad = String.format("%d,%d", ad1.intValue(), ad2.intValue());
 			} else {

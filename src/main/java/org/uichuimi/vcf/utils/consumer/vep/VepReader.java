@@ -1,4 +1,4 @@
-package org.uichuimi.vcf.utils.vep;
+package org.uichuimi.vcf.utils.consumer.vep;
 
 import org.uichuimi.vcf.input.VariantContextReader;
 import org.uichuimi.vcf.utils.common.FileUtils;
@@ -14,9 +14,9 @@ import java.util.List;
 /**
  * Reader for annotation VEP files (homo_sapiens_incl_consequences-chr%s.vcf.gz)
  */
-public class VepReader implements AutoCloseable {
+class VepReader implements AutoCloseable {
 
-	private File path;
+	private final File path;
 	private VariantContextReader reader;
 
 	private String chromosome = null;
@@ -52,14 +52,6 @@ public class VepReader implements AutoCloseable {
 		}
 		return contexts;
 
-	}
-
-	public VariantContext getAnnotations(Coordinate coordinate) {
-		return join(getAnnotationList(coordinate));
-	}
-
-	private VariantContext join(Collection<VariantContext> contexts) {
-		return null;
 	}
 
 	private void openReader(String chrom) {

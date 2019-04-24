@@ -1,4 +1,4 @@
-package org.uichuimi.vcf.utils.neo4j;
+package org.uichuimi.vcf.utils.consumer.neo4j;
 
 import java.io.BufferedWriter;
 import java.io.File;
@@ -9,7 +9,7 @@ import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-public class TableWriter {
+class TableWriter {
 
 	private static final String NULL_VALUE = "";
 	private final static String DEFAULT_DELIMITER = "\t";
@@ -17,8 +17,8 @@ public class TableWriter {
 	private final String delimiter;
 	private final BufferedWriter writer;
 	private List<String> columns;
-	private List<Function<List<?>, Comparable<?>>> functions = new ArrayList<>();
-	private List<Set<Comparable<?>>> indexes = new ArrayList<>();
+	private final List<Function<List<?>, Comparable<?>>> functions = new ArrayList<>();
+	private final List<Set<Comparable<?>>> indexes = new ArrayList<>();
 
 	/**
 	 * List of registered writers
@@ -30,32 +30,28 @@ public class TableWriter {
 		Runtime.getRuntime().addShutdownHook(new Thread(() -> writers.forEach(TableWriter::close)));
 	}
 
-	public TableWriter(File file, List<String> columns) throws IOException {
-		this(file, DEFAULT_DELIMITER, columns);
-		writers.add(this);
-	}
-
-	public TableWriter(File file, String delimiter, List<String> columns) throws IOException {
-		this.delimiter = delimiter;
+	TableWriter(File file, List<String> columns) throws IOException {
+		this.delimiter = DEFAULT_DELIMITER;
 		this.writer = new BufferedWriter(new FileWriter(file));
 		this.columns = columns;
 		write(columns);
+		writers.add(this);
 	}
 
-	public void createIndex(int columnIndex) {
+	void createIndex(int columnIndex) {
 		createIndex(objects -> (Comparable<?>) objects.get(columnIndex));
 	}
 
-	public void createIndex(Function<List<?>, Comparable<?>> indexFunction) {
+	private void createIndex(Function<List<?>, Comparable<?>> indexFunction) {
 		functions.add(indexFunction);
 		indexes.add(new HashSet<>());
 	}
 
-	public void write(Object... values) throws IOException {
+	void write(Object... values) throws IOException {
 		write(Arrays.asList(values));
 	}
 
-	public void write(List<?> values) throws IOException {
+	private void write(List<?> values) throws IOException {
 		if (values.size() != columns.size()) {
 			Logger.getLogger(getClass().getName()).warning(String.format("(%d) %s must contain %d values (%s)", values.size(), values, columns.size(), columns));
 		}
@@ -75,7 +71,7 @@ public class TableWriter {
 		writer.newLine();
 	}
 
-	public void close() {
+	private void close() {
 		try {
 			writer.close();
 		} catch (IOException e) {
