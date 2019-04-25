@@ -10,6 +10,7 @@ sudo neo4j-admin import \
     --array-delimiter "," \
     --ignore-missing-nodes true \
     --nodes:Person ${path}Persons.tsv \
+    --nodes:Project ${path}Projects.tsv \
     --nodes:Variant ${path}Variants.tsv \
     --nodes:Gene ${path}Genes.tsv \
     --nodes:Disease ${path}Diseases.tsv \
@@ -23,6 +24,5 @@ sudo neo4j-admin import \
     --relationships:DISEASE ${path}gene2disease.tsv \
     --relationships:PATHWAY ${path}gene2pathways.tsv \
     --relationships:PROJECT ${path}sample2project.tsv \
-    --nodes:Project ${path}Projects.tsv \
     --relationships:FREQUENCY ${path}var2freq.tsv
 

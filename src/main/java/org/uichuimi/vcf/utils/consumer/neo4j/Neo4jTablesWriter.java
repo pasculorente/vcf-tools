@@ -72,10 +72,13 @@ public class Neo4jTablesWriter implements VariantConsumer {
 	@Override
 	public void start(VcfHeader header) {
 		this.header = header;
+		writeSamples(header);
+	}
+
+	private void writeSamples(VcfHeader header) {
 		try {
-			for (String sample : header.getSamples()) {
-				samples.write(sample);
-			}
+			for (String sample : header.getSamples()) samples.write(sample);
+			samples.close();
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -173,7 +176,8 @@ public class Neo4jTablesWriter implements VariantConsumer {
 				wildtype.write(sample, variantId, aad, dp);
 			else if (genotype.getA() == absoluteA && genotype.getB() == absoluteA)
 				homozygous.write(sample, variantId, aad, dp);
-			else heterozygous.write(sample, variantId, aad, dp);
+			else if (genotype.getA() == absoluteA || genotype.getB() == absoluteA)
+				heterozygous.write(sample, variantId, aad, dp);
 		}
 
 		// Genes

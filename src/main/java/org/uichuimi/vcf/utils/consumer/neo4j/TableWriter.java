@@ -9,7 +9,7 @@ import java.util.function.Function;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-class TableWriter {
+class TableWriter implements AutoCloseable {
 
 	private static final String NULL_VALUE = "";
 	private final static String DEFAULT_DELIMITER = "\t";
@@ -71,7 +71,8 @@ class TableWriter {
 		writer.newLine();
 	}
 
-	private void close() {
+	@Override
+	public void close() {
 		try {
 			writer.close();
 		} catch (IOException e) {

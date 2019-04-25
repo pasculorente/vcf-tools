@@ -52,17 +52,11 @@ public abstract class FrequencyAnnotator implements VariantConsumer {
 	}
 
 	private static int getLastInfoIndex(VcfHeader header) {
-		int start = -1;
-		int end = 1;
-		for (int i = 0; i < header.getHeaderLines().size(); i++) {
-			if (header.getHeaderLines().get(i) instanceof InfoHeaderLine) {
-				if (start == -1) {
-					start = i;
-					end = i;
-				} else end = i;
-			}
-		}
-		return end;
+		int pos = -1;
+		for (int i = 0; i < header.getHeaderLines().size(); i++)
+			if (header.getHeaderLines().get(i) instanceof InfoHeaderLine)
+				pos = i;
+		return pos == -1 ? header.getHeaderLines().size() - 1 : pos;
 	}
 
 	@Override
