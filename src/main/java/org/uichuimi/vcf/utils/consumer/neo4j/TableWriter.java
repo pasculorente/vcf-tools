@@ -1,8 +1,9 @@
 package org.uichuimi.vcf.utils.consumer.neo4j;
 
+import org.uichuimi.vcf.utils.common.FileUtils;
+
 import java.io.BufferedWriter;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.util.*;
 import java.util.function.Function;
@@ -32,7 +33,7 @@ class TableWriter implements AutoCloseable {
 
 	TableWriter(File file, List<String> columns) throws IOException {
 		this.delimiter = DEFAULT_DELIMITER;
-		this.writer = new BufferedWriter(new FileWriter(file));
+		this.writer = FileUtils.getBufferedWriter(file);
 		this.columns = columns;
 		write(columns);
 		writers.add(this);

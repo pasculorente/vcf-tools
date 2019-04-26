@@ -14,6 +14,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.stream.Collectors;
 
 import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
@@ -70,7 +71,8 @@ class VariantContextAnnotator implements Callable<Void> {
 		final ProgressBar bar = new ProgressBar();
 		int c = 0;
 		try (final MultipleVariantContextReader variantReader = MultipleVariantContextReader.getInstance(inputs)) {
-			System.out.printf("Found %d samples%n", variantReader.getHeader().getSamples().size());
+			final List<String> samples = variantReader.getHeader().getSamples().stream().sorted().distinct().collect(Collectors.toList());
+			System.out.printf("Found %d samples (%s)%n", samples.size(), String.join(", ", samples));
 			// Create consumers depending on the options
 			// 1. Additive consumers
 			System.out.println("Adding consumers:");
@@ -93,7 +95,7 @@ class VariantContextAnnotator implements Callable<Void> {
 			}
 			// 2. Modifier consumers
 			if (compute) {
-				System.out.println(" - DP, AD, AC and AN will be recomputed");
+				System.out.println(" - DP and AN (global) and AF and AC (per allele) will be recomputed");
 				consumers.add(new StatsCalculator());
 			}
 			// 3. Output consumers

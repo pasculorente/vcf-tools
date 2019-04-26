@@ -10,7 +10,6 @@ import org.uichuimi.vcf.variant.VariantContext;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicLong;
@@ -40,6 +39,7 @@ public class Neo4jTablesWriter implements VariantConsumer {
 	private final TableWriter variants;
 	private final TableWriter frequencies;
 	private final TableWriter var2freq;
+	private final TableWriter var2effect;
 	private VcfHeader header;
 
 
@@ -47,26 +47,28 @@ public class Neo4jTablesWriter implements VariantConsumer {
 
 	public Neo4jTablesWriter(File path) throws IOException {
 
-		samples = new TableWriter(new File(path, "Persons.tsv"), Collections.singletonList("id:ID(sample)"));
+		samples = new TableWriter(new File(path, "Persons.tsv.gz"), Collections.singletonList("id:ID(sample)"));
 		samples.createIndex(0);
 
 		// (:Sample)-[:homozygous|heterozygous|wildtype]->(:Variant)
-		final List<String> columns = Arrays.asList(":START_ID(sample)", ":END_ID(variant)", "ad:int[]", "dp:int");
-		homozygous = new TableWriter(new File(path, "homo.tsv"), columns);
-		heterozygous = new TableWriter(new File(path, "hetero.tsv"), columns);
-		wildtype = new TableWriter(new File(path, "wild.tsv"), columns);
+		final List<String> columns = List.of(":START_ID(sample)", ":END_ID(variant)", "ad:int[]", "dp:int");
+		homozygous = new TableWriter(new File(path, "homo.tsv.gz"), columns);
+		heterozygous = new TableWriter(new File(path, "hetero.tsv.gz"), columns);
+		wildtype = new TableWriter(new File(path, "wild.tsv.gz"), columns);
 
 		// (:Variant)
-		final List<String> cols = new ArrayList<>(Arrays.asList(":ID(variant)", "chrom", "pos:int", "ref:string",
-				"alt:string", "rs:string[]", "sift:string", "polyphen:string", "effect:string", "amino:string"));
-		variants = new TableWriter(new File(path, "Variants.tsv"), cols);
+		final List<String> cols = new ArrayList<>(List.of(":ID(variant)", "chrom", "pos:int", "ref:string",
+				"alt:string", "rs:string[]", "sift:string", "polyphen:string", "amino:string"));
+		variants = new TableWriter(new File(path, "Variants.tsv.gz"), cols);
+
+		var2effect = new TableWriter(new File(path, "var2effect.tsv.gz"), List.of(":START_ID(variant)", ":END_ID(effect)"));
 
 		// (:Variant)-[:gene]->(:Gene)
-		var2gene = new TableWriter(new File(path, "var2gene.tsv"), Arrays.asList(":START_ID(variant)", ":END_ID(gene)"));
+		var2gene = new TableWriter(new File(path, "var2gene.tsv.gz"), List.of(":END_ID(gene)", ":START_ID(variant)"));
 
 		// (:Variant)-[:FREQUENCY]->(:Frequency)
-		frequencies = new TableWriter(new File(path, "Frequencies.tsv"), Arrays.asList(":ID(freq)", "source", "population", "value:double"));
-		var2freq = new TableWriter(new File(path, "var2freq.tsv"), Arrays.asList(":START_ID(variant)", ":END_ID(freq)"));
+		frequencies = new TableWriter(new File(path, "Frequencies.tsv.gz"), List.of(":ID(freq)", "source", "population", "value:double"));
+		var2freq = new TableWriter(new File(path, "var2freq.tsv.gz"), List.of(":START_ID(variant)", ":END_ID(freq)"));
 	}
 
 	@Override
@@ -93,7 +95,6 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-
 	}
 
 	private void addSimplifiedVariant(VariantContext variant, Coordinate coordinate, int r, int a) throws IOException {
@@ -114,11 +115,14 @@ public class Neo4jTablesWriter implements VariantConsumer {
 				String.join(",", variant.getIds()),
 				info.get("Sift"),
 				info.get("Polyphen"),
-				info.get("CONS"),
 				info.get("AMINO")
 		);
+
+		final String effect = info.getString("CONS");
+		if (effect != null) var2effect.write(variantId, effect);
+		
 		// Frequencies (1000g)
-		for (String pop : Arrays.asList("EAS", "SAS", "EUR", "AFR", "AMR")) {
+		for (String pop : List.of("EAS", "SAS", "EUR", "AFR", "AMR")) {
 			final Object score = info.get("KG_" + pop + "_AF");
 			if (score != null) {
 				final long id = frequencyId.incrementAndGet();
@@ -127,7 +131,7 @@ public class Neo4jTablesWriter implements VariantConsumer {
 			}
 		}
 		// Frequencies (gnomAD genomes)
-		for (String pop : Arrays.asList("AMR", "AFR", "EAS", "NFE", "FIN", "OTH", "ASJ")) {
+		for (String pop : List.of("AMR", "AFR", "EAS", "NFE", "FIN", "OTH", "ASJ")) {
 			final Object score = info.get("GG_" + pop + "_AF");
 			if (score != null) {
 				final long id = frequencyId.incrementAndGet();
@@ -136,7 +140,7 @@ public class Neo4jTablesWriter implements VariantConsumer {
 			}
 		}
 		// Frequencies (gnomAD exomes)
-		for (String pop : Arrays.asList("AFR", "AMR", "ASJ", "EAS", "FIN", "NFE", "OTH", "SAS")) {
+		for (String pop : List.of("AFR", "AMR", "ASJ", "EAS", "FIN", "NFE", "OTH", "SAS")) {
 			final Object score = info.get("GE_" + pop + "_AF");
 			if (score != null) {
 				final long id = frequencyId.incrementAndGet();

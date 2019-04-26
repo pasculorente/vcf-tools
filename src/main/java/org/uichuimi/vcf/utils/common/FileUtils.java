@@ -16,6 +16,10 @@ public class FileUtils {
 		return new BufferedReader(new InputStreamReader(getInputStream(file)));
 	}
 
+	public static BufferedWriter getBufferedWriter(File file) throws IOException {
+		return new BufferedWriter(new OutputStreamWriter(getOutputStream(file)));
+	}
+
 	/**
 	 * Interprets the file type by its extension and generates the proper InputStream. Currently,
 	 * it can open text files and gzipped and zipped text files.
