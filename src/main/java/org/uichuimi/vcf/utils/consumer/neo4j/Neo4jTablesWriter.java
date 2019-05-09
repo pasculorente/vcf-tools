@@ -40,6 +40,8 @@ public class Neo4jTablesWriter implements VariantConsumer {
 	private final TableWriter frequencies;
 	private final TableWriter var2freq;
 	private final TableWriter var2effect;
+//	private final TableWriter var2prediction;
+//	private final TableWriter predictions;
 	private VcfHeader header;
 
 
@@ -47,7 +49,7 @@ public class Neo4jTablesWriter implements VariantConsumer {
 
 	public Neo4jTablesWriter(File path) throws IOException {
 
-		samples = new TableWriter(new File(path, "Persons.tsv.gz"), Collections.singletonList("id:ID(sample)"));
+		samples = new TableWriter(new File(path, "Persons.tsv.gz"), Collections.singletonList("identifier:ID(sample)"));
 		samples.createIndex(0);
 
 		// (:Sample)-[:homozygous|heterozygous|wildtype]->(:Variant)
@@ -60,6 +62,10 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		final List<String> cols = new ArrayList<>(List.of(":ID(variant)", "chrom", "pos:int", "ref:string",
 				"alt:string", "rs:string[]", "sift:string", "polyphen:string", "amino:string"));
 		variants = new TableWriter(new File(path, "Variants.tsv.gz"), cols);
+
+		// (:Variant)-[:PREDICTION]->(:Prediction{source:"sift", prediction: "benign"})
+//		predictions = new TableWriter(new File(path, "Predictions.tsv.gz"), List.of(":ID(prediction)", "source", "prediction"));
+//		var2prediction = new TableWriter(new File(path, "var2prediction.tsv.gz"), List.of(":START_ID(variant)", ":END_ID(prediction)"));
 
 		var2effect = new TableWriter(new File(path, "var2effect.tsv.gz"), List.of(":START_ID(variant)", ":END_ID(effect)"));
 
@@ -146,6 +152,15 @@ public class Neo4jTablesWriter implements VariantConsumer {
 				final long id = frequencyId.incrementAndGet();
 				var2freq.write(variantId, id);
 				frequencies.write(id, "gnomAD_exomes", pop, score);
+			}
+		}
+		// Frequencies (ExAC)
+		for (String pop : List.of("AFR", "AMR", "EAS", "FIN", "NFE", "OTH", "SAS")) {
+			final Object score = info.get("EX_" + pop + "_AF");
+			if (score != null) {
+				final long id = frequencyId.incrementAndGet();
+				var2freq.write(variantId, id);
+				frequencies.write(id, "ExAC", pop, score);
 			}
 		}
 		// Samples

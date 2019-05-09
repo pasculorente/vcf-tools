@@ -61,6 +61,10 @@ class VariantContextAnnotator implements Callable<Void> {
 			description = "File with gnomAD exomes frequencies (AF_[afr|amr|asj|eas|fin|nfe|oth|sas]). If it is a directory, then files must have the format gnomad.exomes.chr{}.vcf.gz")
 	private File gnomadExomes;
 
+	@Option(names = {"--exac", "--ExAC"},
+			description = "File with ExAC frequencies (AC_[AFR|AMR|EAS|FIN|NFE|OTH|SAS] + AN_Adj) from Ensembl (ExAC.0.3.GRCh38.vcf.gz)")
+	private File exac;
+
 	@Option(names = {"--compute-stats"}, description = "Whether to compute DP, AN, AC and AF again.")
 	private boolean compute;
 
@@ -74,8 +78,8 @@ class VariantContextAnnotator implements Callable<Void> {
 			final List<String> samples = variantReader.getHeader().getSamples().stream().sorted().distinct().collect(Collectors.toList());
 			System.out.printf("Found %d samples (%s)%n", samples.size(), String.join(", ", samples));
 			// Create consumers depending on the options
-			// 1. Additive consumers
 			System.out.println("Adding consumers:");
+			// 1. Additive consumers
 			if (kGenomes != null) {
 				System.out.println(" - 1000G frequencies from " + kGenomes);
 				consumers.add(new KGenomesAnnotator(kGenomes));
@@ -92,6 +96,10 @@ class VariantContextAnnotator implements Callable<Void> {
 			if (gnomadExomes != null) {
 				System.out.println(" - Adding gnomAD exomes frequencies from " + gnomadExomes);
 				consumers.add(new GnomadExomeAnnotator(gnomadExomes));
+			}
+			if (exac != null) {
+				System.out.println(" - Adding ExAC frequencies from " + exac);
+				consumers.add(new ExACAnnotator(exac));
 			}
 			// 2. Modifier consumers
 			if (compute) {
@@ -130,11 +138,11 @@ class VariantContextAnnotator implements Callable<Void> {
 				}
 			}
 
-			// Close consumers
-			bar.update(0.99, "Closing consumers...");
 		} catch (Exception e) {
 			throw new Exception("At line " + c, e);
 		} finally {
+			// Close consumers
+			bar.update(0.99, "Closing consumers...");
 			consumers.forEach(VariantConsumer::close);
 
 		}
