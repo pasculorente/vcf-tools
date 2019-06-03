@@ -10,7 +10,6 @@ import org.uichuimi.vcf.variant.VariantContext;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -44,19 +43,8 @@ public abstract class FrequencyAnnotator implements VariantConsumer {
 	}
 
 	private void injectHeaderLines(VcfHeader header) {
-		int pos = getLastInfoIndex(header);
-		final Collection<InfoHeaderLine> headerLines = new ArrayList<>();
 		for (FrequencyAnnotation annotation : annotations)
-			headerLines.add(new InfoHeaderLine(annotation.targetId, "A", "Float", annotation.description));
-		header.getHeaderLines().addAll(pos, headerLines);
-	}
-
-	private static int getLastInfoIndex(VcfHeader header) {
-		int pos = -1;
-		for (int i = 0; i < header.getHeaderLines().size(); i++)
-			if (header.getHeaderLines().get(i) instanceof InfoHeaderLine)
-				pos = i;
-		return pos == -1 ? header.getHeaderLines().size() - 1 : pos;
+			header.add(new InfoHeaderLine(annotation.targetId, "A", "Float", annotation.description));
 	}
 
 	@Override

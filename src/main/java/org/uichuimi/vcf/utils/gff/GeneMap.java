@@ -1,6 +1,7 @@
 package org.uichuimi.vcf.utils.gff;
 
 import org.uichuimi.vcf.utils.common.FileUtils;
+import org.uichuimi.vcf.variant.Coordinate;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -149,6 +150,15 @@ public class GeneMap {
 		return geneMap.get(transcript.geneId);
 	}
 
+	public Gene findGene(Coordinate coordinate) {
+		final List<Gene> genes = chromosomes.get(coordinate.getChrom());
+		if (genes == null) return null;
+		for (Gene gene : genes)
+			if (gene.start <= coordinate.getPosition() && coordinate.getPosition() <= gene.end)
+				return gene;
+		return null;
+	}
+
 
 	private class Feature {
 	}
@@ -209,8 +219,6 @@ public class GeneMap {
 			if (compare != 0) return compare;
 			return Integer.compare(end, other.end);
 		}
-
 	}
-
 
 }

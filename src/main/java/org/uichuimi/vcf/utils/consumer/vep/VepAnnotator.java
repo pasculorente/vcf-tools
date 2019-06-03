@@ -2,6 +2,7 @@ package org.uichuimi.vcf.utils.consumer.vep;
 
 import org.uichuimi.vcf.header.InfoHeaderLine;
 import org.uichuimi.vcf.header.VcfHeader;
+import org.uichuimi.vcf.utils.common.CoordinateUtils;
 import org.uichuimi.vcf.utils.consumer.VariantConsumer;
 import org.uichuimi.vcf.utils.gff.GeneMap;
 import org.uichuimi.vcf.variant.Coordinate;
@@ -17,7 +18,7 @@ public class VepAnnotator implements VariantConsumer {
 	/**
 	 * Order of consequences by severity (min to max)
 	 */
-	private static final List<String> CONS_SEVERITY = Arrays.asList(
+	private static final List<String> CONS_SEVERITY = List.of(
 			"intergenic_variant", "feature_truncation", "regulatory_region_variant", "feature_elongation",
 			"regulatory_region_amplification", "regulatory_region_ablation", "TF_binding_site_variant",
 			"TFBS_amplification", "TFBS_ablation", "downstream_gene_variant", "upstream_gene_variant",
@@ -48,76 +49,20 @@ public class VepAnnotator implements VariantConsumer {
 	public void accept(VariantContext variant, Coordinate grch38) {
 		// Add VEP annotations
 		final Collection<VariantContext> vepAnnotations = vepReader.getAnnotationList(grch38);
-		for (VariantContext vepAnnotation : vepAnnotations) annotateVep(variant, vepAnnotation, geneMap);
-
-
+		for (VariantContext vepAnnotation : vepAnnotations)
+			annotateVep(variant, vepAnnotation, geneMap);
 	}
 
 	private void addAnnotationHeaders(VcfHeader header) {
-		int start = -1;
-		int end = 1;
-		for (int i = 0; i < header.getHeaderLines().size(); i++) {
-			if (header.getHeaderLines().get(i) instanceof InfoHeaderLine) {
-				if (start == -1) {
-					start = i;
-					end = i;
-				} else end = i;
-			}
-		}
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
-			put("ID", "Sift");
-			put("Number", "A");
-			put("Type", "String");
-			put("Description", "Sift prediction");
-		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
-			put("ID", "Polyphen");
-			put("Number", "A");
-			put("Type", "String");
-			put("Description", "Polyphen prediction");
-		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
-			put("ID", "CONS");
-			put("Number", "A");
-			put("Type", "String");
-			put("Description", "Ensembl VEP consequence");
-		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
-			put("ID", "BIO");
-			put("Number", "A");
-			put("Type", "String");
-			put("Description", "Gene biotype");
-		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
-			put("ID", "SYMBOL");
-			put("Number", "A");
-			put("Type", "String");
-			put("Description", "Gene symbol");
-		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
-			put("ID", "FT");
-			put("Number", "A");
-			put("Type", "String");
-			put("Description", "Feature type");
-		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
-			put("ID", "ENSG");
-			put("Number", "A");
-			put("Type", "String");
-			put("Description", "Ensembl gene id");
-		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
-			put("ID", "ENST");
-			put("Number", "A");
-			put("Type", "String");
-			put("Description", "Ensembl transcript id");
-		}}));
-		header.getHeaderLines().add(end, new InfoHeaderLine(new LinkedHashMap<>() {{
-			put("ID", "AMINO");
-			put("Number", "A");
-			put("Type", "String");
-			put("Description", "Amino acid change (ref/alt)");
-		}}));
+		header.add(new InfoHeaderLine("Sift", "A", "String", "Sift prediction"));
+		header.add(new InfoHeaderLine("Polyphen", "A", "String", "Polyphen prediction"));
+		header.add(new InfoHeaderLine("CONS", "A", "String", "Ensembl VEP consequence"));
+		header.add(new InfoHeaderLine("BIO", "A", "String", "Gene biotype"));
+		header.add(new InfoHeaderLine("SYMBOL", "A", "String", "Gene symbol"));
+		header.add(new InfoHeaderLine("FT", "A", "String", "Feature type"));
+		header.add(new InfoHeaderLine("ENSG", "A", "String", "Ensembl gene id"));
+		header.add(new InfoHeaderLine("ENST", "A", "String", "Ensembl transcript id"));
+		header.add(new InfoHeaderLine("AMINO", "A", "String", "Amino acid change (ref/alt)"));
 	}
 
 	private void annotateVep(VariantContext variant, VariantContext vepAnnotation, GeneMap geneMap) {
@@ -185,6 +130,12 @@ public class VepAnnotator implements VariantConsumer {
 					info.set("ENST", transcript.getId());
 					info.set("BIO", transcript.getBiotype());
 					final GeneMap.Gene gene = geneMap.fromTranscript(effect[3]);
+					if (gene != null) {
+						info.set("ENSG", gene.getId());
+						info.set("SYMBOL", gene.getName());
+					}
+				} else {
+					GeneMap.Gene gene = geneMap.findGene(CoordinateUtils.toGrch38(variant.getCoordinate()));
 					if (gene != null) {
 						info.set("ENSG", gene.getId());
 						info.set("SYMBOL", gene.getName());

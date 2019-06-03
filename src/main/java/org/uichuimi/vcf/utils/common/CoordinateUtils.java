@@ -23,6 +23,5 @@ public class CoordinateUtils {
 	public static Coordinate toGrch38(Coordinate coordinate) {
 		final String chr = UCSC_TO_GRCH38.getOrDefault(coordinate.getChrom(), coordinate.getChrom());
 		return new Coordinate(chr, coordinate.getPosition());
-
 	}
 }

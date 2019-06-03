@@ -40,8 +40,6 @@ public class Neo4jTablesWriter implements VariantConsumer {
 	private final TableWriter frequencies;
 	private final TableWriter var2freq;
 	private final TableWriter var2effect;
-//	private final TableWriter var2prediction;
-//	private final TableWriter predictions;
 	private VcfHeader header;
 
 
@@ -70,7 +68,7 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		var2effect = new TableWriter(new File(path, "var2effect.tsv.gz"), List.of(":START_ID(variant)", ":END_ID(effect)"));
 
 		// (:Variant)-[:gene]->(:Gene)
-		var2gene = new TableWriter(new File(path, "var2gene.tsv.gz"), List.of(":END_ID(gene)", ":START_ID(variant)"));
+		var2gene = new TableWriter(new File(path, "var2gene.tsv.gz"), List.of(":START_ID(variant)", ":END_ID(gene)"));
 
 		// (:Variant)-[:FREQUENCY]->(:Frequency)
 		frequencies = new TableWriter(new File(path, "Frequencies.tsv.gz"), List.of(":ID(freq)", "source", "population", "value:double"));
