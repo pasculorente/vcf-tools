@@ -68,6 +68,55 @@ class VariantContextAnnotator implements Callable<Void> {
 	@Option(names = {"--compute-stats"}, description = "Whether to compute DP, AN, AC and AF again.")
 	private boolean compute;
 
+	public VariantContextAnnotator() {
+	}
+
+	public VariantContextAnnotator(List<File> inputs, File output) {
+		this.inputs = inputs;
+		this.output = output;
+	}
+
+	// Builder pattern
+	public VariantContextAnnotator setVep(File vep) {
+		this.vep = vep;
+		return this;
+	}
+
+	public VariantContextAnnotator setkGenomes(File kGenomes) {
+		this.kGenomes = kGenomes;
+		return this;
+	}
+
+	public VariantContextAnnotator setGenes(File genes) {
+		this.genes = genes;
+		return this;
+	}
+
+	public VariantContextAnnotator setNeo4j(File neo4j) {
+		this.neo4j = neo4j;
+		return this;
+	}
+
+	public VariantContextAnnotator setGnomadGenomes(File gnomadGenomes) {
+		this.gnomadGenomes = gnomadGenomes;
+		return this;
+	}
+
+	public VariantContextAnnotator setGnomadExomes(File gnomadExomes) {
+		this.gnomadExomes = gnomadExomes;
+		return this;
+	}
+
+	public VariantContextAnnotator setExac(File exac) {
+		this.exac = exac;
+		return this;
+	}
+
+	public VariantContextAnnotator setCompute(boolean compute) {
+		this.compute = compute;
+		return this;
+	}
+
 	@Override
 	public Void call() throws Exception {
 
