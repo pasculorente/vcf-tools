@@ -28,5 +28,6 @@ sudo neo4j-admin import \
     --relationships:PROJECT ${path}sample2project.tsv.gz \
     --relationships:FREQUENCY ${path}var2freq.tsv.gz \
     --relationships:EFFECT ${path}var2effect.tsv.gz \
-    --relationships:DRUG ${path}gene2drug.tsv.gz
+    --relationships:DRUG ${path}gene2drug.tsv.gz\
+    --relationships ${path}variant2disease.tsv.gz
 
