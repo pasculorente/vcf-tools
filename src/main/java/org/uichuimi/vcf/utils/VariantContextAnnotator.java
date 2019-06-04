@@ -123,6 +123,7 @@ class VariantContextAnnotator implements Callable<Void> {
 		final List<VariantConsumer> consumers = new ArrayList<>();
 		final ProgressBar bar = new ProgressBar();
 		int c = 0;
+		VariantContext variant = null;
 		try (final MultipleVariantContextReader variantReader = MultipleVariantContextReader.getInstance(inputs)) {
 			final List<String> samples = variantReader.getHeader().getSamples().stream().sorted().distinct().collect(Collectors.toList());
 			System.out.printf("Found %d samples (%s)%n", samples.size(), String.join(", ", samples));
@@ -172,7 +173,7 @@ class VariantContextAnnotator implements Callable<Void> {
 
 			// Iterate over input
 			while (variantReader.hasNext()) {
-				final VariantContext variant = variantReader.nextMerged();
+				variant = variantReader.nextMerged();
 				final Coordinate coordinate = variant.getCoordinate();
 				final Coordinate grch38 = CoordinateUtils.toGrch38(coordinate);
 
@@ -188,7 +189,7 @@ class VariantContextAnnotator implements Callable<Void> {
 			}
 
 		} catch (Exception e) {
-			throw new Exception("At line " + c, e);
+			throw new Exception(String.format("At line %d, variant %s", c, variant), e);
 		} finally {
 			// Close consumers
 			bar.update(0.99, "Closing consumers...");
