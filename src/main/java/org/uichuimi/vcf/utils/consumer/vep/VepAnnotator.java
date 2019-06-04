@@ -13,22 +13,25 @@ import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
 
+import static java.util.Comparator.comparingInt;
+
 public class VepAnnotator implements VariantConsumer {
 
 	/**
 	 * Order of consequences by severity (min to max)
 	 */
 	private static final List<String> CONS_SEVERITY = List.of(
-			"intergenic_variant", "feature_truncation", "regulatory_region_variant", "feature_elongation",
-			"regulatory_region_amplification", "regulatory_region_ablation", "TF_binding_site_variant",
-			"TFBS_amplification", "TFBS_ablation", "downstream_gene_variant", "upstream_gene_variant",
-			"non_coding_transcript_variant", "NMD_transcript_variant", "intron_variant",
-			"non_coding_transcript_exon_variant", "3_prime_UTR_variant", "5_prime_UTR_variant",
-			"mature_miRNA_variant", "coding_sequence_variant", "synonymous_variant", "stop_retained_variant",
-			"start_retained_variant", "incomplete_terminal_codon_variant", "splice_region_variant",
-			"protein_altering_variant", "missense_variant", "inframe_deletion", "inframe_insertion",
-			"transcript_amplification", "start_lost", "stop_lost", "frameshift_variant", "stop_gained",
-			"splice_donor_variant", "splice_acceptor_variant", "transcript_ablation"
+			"transcript_ablation", "splice_acceptor_variant", "splice_donor_variant", "stop_gained",
+			"frameshift_variant", "stop_lost", "start_lost", "transcript_amplification",
+			"inframe_insertion", "inframe_deletion", "missense_variant", "protein_altering_variant",
+			"splice_region_variant", "incomplete_terminal_codon_variant", "start_retained_variant",
+			"stop_retained_variant", "synonymous_variant", "coding_sequence_variant",
+			"mature_miRNA_variant", "5_prime_UTR_variant", "3_prime_UTR_variant",
+			"non_coding_transcript_exon_variant", "intron_variant", "NMD_transcript_variant",
+			"non_coding_transcript_variant", "upstream_gene_variant", "downstream_gene_variant",
+			"TFBS_ablation", "TFBS_amplification", "TF_binding_site_variant",
+			"regulatory_region_ablation", "regulatory_region_amplification", "feature_elongation",
+			"regulatory_region_variant", "feature_truncation", "intergenic_variant"
 	);
 
 	private final GeneMap geneMap;
@@ -146,7 +149,12 @@ public class VepAnnotator implements VariantConsumer {
 	}
 
 	private String[] mostSevereVariantEffect(List<String[]> values) {
-		return values.stream().max(Comparator.comparingInt(x -> CONS_SEVERITY.indexOf(x[0]))).orElse(null);
+		return values.stream().min(Comparator
+				// Sort by severity
+				.comparingInt((String[] x) -> CONS_SEVERITY.indexOf(x[0]))
+				// At the same severity, prefer the Ensembl identifier
+				.thenComparingInt(x -> x[3].startsWith("ENST") ? -1 : 1))
+				.orElse(null);
 	}
 
 	private void addSift(VariantContext variant, VariantContext vepAnnotation) {
@@ -281,7 +289,9 @@ public class VepAnnotator implements VariantConsumer {
 
 	private String[] mostSevereConsequence(List<String[]> consequences) {
 		// Simply sort by CONS_SEVERITY and take the max one
-		return consequences.stream().max(Comparator.comparingInt(vals -> CONS_SEVERITY.indexOf(vals[1]))).orElse(null);
+		return consequences.stream()
+				.min(comparingInt(vals -> CONS_SEVERITY.indexOf(vals[1])))
+				.orElse(null);
 	}
 
 	@Override
