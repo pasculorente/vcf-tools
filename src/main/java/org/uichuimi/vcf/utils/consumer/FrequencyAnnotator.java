@@ -96,7 +96,6 @@ public abstract class FrequencyAnnotator implements VariantConsumer {
 		}
 	}
 
-
 	@Override
 	public void close() {
 		try {
@@ -120,4 +119,3 @@ public abstract class FrequencyAnnotator implements VariantConsumer {
 	}
 
 }
-
