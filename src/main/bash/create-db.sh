@@ -9,15 +9,15 @@ sudo neo4j-admin import \
     --delimiter "\t" \
     --array-delimiter "," \
     --ignore-missing-nodes true \
-    --nodes:Person ${path}Persons.tsv.gz \
-    --nodes:Project ${path}Projects.tsv.gz \
-    --nodes:Variant ${path}Variants.tsv.gz \
-    --nodes:Gene ${path}Genes.tsv.gz \
-    --nodes:Disease ${path}Diseases.tsv.gz \
-    --nodes:Pathway ${path}Pathways.tsv.gz \
-    --nodes:Frequency ${path}Frequencies.tsv.gz \
-    --nodes:Effect ${path}Effects.tsv.gz \
-    --nodes:Drug ${path}Drugs.tsv.gz \
+    --nodes:DatabaseObject:Person ${path}Persons.tsv.gz \
+    --nodes:DatabaseObject:Project ${path}Projects.tsv.gz \
+    --nodes:DatabaseObject:Variant ${path}Variants.tsv.gz \
+    --nodes:DatabaseObject:Gene ${path}Genes.tsv.gz \
+    --nodes:DatabaseObject:Disease ${path}Diseases.tsv.gz \
+    --nodes:DatabaseObject:Pathway ${path}Pathways.tsv.gz \
+    --nodes:DatabaseObject:Frequency ${path}Frequencies.tsv.gz \
+    --nodes:DatabaseObject:Effect ${path}Effects.tsv.gz \
+    --nodes:DatabaseObject:Drug ${path}Drugs.tsv.gz \
     --relationships:INTERACTS_WITH ${path}interactions.tsv.gz \
     --relationships:HOMOZYGOUS ${path}homo.tsv.gz \
     --relationships:HETEROZYGOUS ${path}hetero.tsv.gz \
