@@ -60,15 +60,15 @@ public class VepAnnotator implements VariantConsumer {
 	}
 
 	private void addAnnotationHeaders(VcfHeader header) {
-		header.add(new InfoHeaderLine("Sift", "A", "String", "Sift prediction"));
-		header.add(new InfoHeaderLine("Polyphen", "A", "String", "Polyphen prediction"));
-		header.add(new InfoHeaderLine("CONS", "A", "String", "Ensembl VEP consequence"));
-		header.add(new InfoHeaderLine("BIO", "A", "String", "Gene biotype"));
-		header.add(new InfoHeaderLine("SYMBOL", "A", "String", "Gene symbol"));
-		header.add(new InfoHeaderLine("FT", "A", "String", "Feature type"));
-		header.add(new InfoHeaderLine("ENSG", "A", "String", "Ensembl gene id"));
-		header.add(new InfoHeaderLine("ENST", "A", "String", "Ensembl transcript id"));
-		header.add(new InfoHeaderLine("AMINO", "A", "String", "Amino acid change (ref/alt)"));
+		header.add(new InfoHeaderLine("Sift", "A", "String", "Sift prediction"), true);
+		header.add(new InfoHeaderLine("Polyphen", "A", "String", "Polyphen prediction"), true);
+		header.add(new InfoHeaderLine("CONS", "A", "String", "Ensembl VEP consequence"), true);
+		header.add(new InfoHeaderLine("BIO", "A", "String", "Gene biotype"), true);
+		header.add(new InfoHeaderLine("SYMBOL", "A", "String", "Gene symbol"), true);
+		header.add(new InfoHeaderLine("FT", "A", "String", "Feature type"), true);
+		header.add(new InfoHeaderLine("ENSG", "A", "String", "Ensembl gene id"), true);
+		header.add(new InfoHeaderLine("ENST", "A", "String", "Ensembl transcript id"), true);
+		header.add(new InfoHeaderLine("AMINO", "A", "String", "Amino acid change (ref/alt)"), true);
 	}
 
 	private void annotateVep(VariantContext variant, VariantContext vepAnnotation, GeneMap geneMap) {
@@ -97,11 +97,13 @@ public class VepAnnotator implements VariantConsumer {
 		final String reference = getReferencePeptide(annotation);
 		// VarPep is indexed by allele
 		final Map<String, List<String[]>> alternativePeptides = collectAlternativePeptides(annotation);
-		for (String allele : variant.getAlternatives()) {
+		List<String> alternatives = variant.getAlternatives();
+		for (int i = 0; i < alternatives.size(); i++) {
+			String allele = alternatives.get(i);
 			final List<String[]> list = alternativePeptides.get(allele);
 			if (list != null) {
 				final String alt = list.get(0)[1];
-				variant.getInfo().getAllele(0).set("AMINO", String.format("%s/%s", reference, alt));
+				variant.getInfo().getAlternativeAllele(i).set("AMINO", String.format("%s/%s", reference, alt));
 			}
 		}
 	}
@@ -312,7 +314,6 @@ public class VepAnnotator implements VariantConsumer {
 	}
 
 	private void parseConsequence(VariantContext variant, VariantContext vepAnnotation, GeneMap geneMap) {
-		return;
 		// Consequence annotations from Ensembl's Variant Effect Pipeline.
 
 		// ID=CSQ,Number=.,Type=String
