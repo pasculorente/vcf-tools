@@ -46,21 +46,11 @@ public class ExACAnnotator implements VariantConsumer {
 	}
 
 	private void injectHeaderLines(VcfHeader header) {
-		int pos = getLastInfoIndex(header);
 		final Collection<InfoHeaderLine> headerLines = new ArrayList<>();
 		for (int i = 0; i < IDS.size(); i++)
 			headerLines.add(new InfoHeaderLine(IDS.get(i), "A", "Float", DESCRIPTIONS.get(i)));
-		header.getHeaderLines().addAll(pos, headerLines);
+		for (InfoHeaderLine line : headerLines) header.addHeaderLine(line, true);
 	}
-
-	private static int getLastInfoIndex(VcfHeader header) {
-		int pos = -1;
-		for (int i = 0; i < header.getHeaderLines().size(); i++)
-			if (header.getHeaderLines().get(i) instanceof InfoHeaderLine)
-				pos = i;
-		return pos == -1 ? header.getHeaderLines().size() - 1 : pos;
-	}
-
 
 	@Override
 	public void accept(Variant variant, Coordinate grch38) {

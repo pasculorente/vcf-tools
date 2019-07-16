@@ -1,5 +1,7 @@
 package org.uichuimi.vcf.utils;
 
+import org.uichuimi.vcf.header.SimpleHeaderLine;
+import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.io.MultipleVariantReader;
 import org.uichuimi.vcf.utils.common.CoordinateUtils;
 import org.uichuimi.vcf.utils.common.GenomeProgress;
@@ -20,12 +22,12 @@ import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
 
 /**
- * Allows the annotation of VCF files with VEP and 1000Genomes. Input must be 1 or more VCF files, Output to a VCF file
- * or neo4j tables (3rd normal form). It is encouraged to used the Ensembl reference genome (GRCh38), although UCSC
- * genome should work as well.
+ * Allows the annotation of VCF files with VEP and 1000Genomes. Input must be 1 or more VCF files,
+ * Output to a VCF file or neo4j tables (3rd normal form). It is encouraged to used the Ensembl
+ * reference genome (GRCh38), although UCSC genome should work as well.
  */
 @Command(name = "annotate", description = "annotates vcf files using VEP, 1kg and other resources")
-class VariantContextAnnotator implements Callable<Void> {
+class VariantAnnotator implements Callable<Void> {
 
 	@Option(names = {"--input", "-i"},
 			arity = "1..*",
@@ -68,51 +70,51 @@ class VariantContextAnnotator implements Callable<Void> {
 	@Option(names = {"--compute-stats"}, description = "Whether to compute DP, AN, AC and AF again.")
 	private boolean compute;
 
-	public VariantContextAnnotator() {
+	public VariantAnnotator() {
 	}
 
-	public VariantContextAnnotator(List<File> inputs, File output) {
+	public VariantAnnotator(List<File> inputs, File output) {
 		this.inputs = inputs;
 		this.output = output;
 	}
 
 	// Builder pattern
-	public VariantContextAnnotator setVep(File vep) {
+	public VariantAnnotator setVep(File vep) {
 		this.vep = vep;
 		return this;
 	}
 
-	public VariantContextAnnotator setkGenomes(File kGenomes) {
+	public VariantAnnotator setkGenomes(File kGenomes) {
 		this.kGenomes = kGenomes;
 		return this;
 	}
 
-	public VariantContextAnnotator setGenes(File genes) {
+	public VariantAnnotator setGenes(File genes) {
 		this.genes = genes;
 		return this;
 	}
 
-	public VariantContextAnnotator setNeo4j(File neo4j) {
+	public VariantAnnotator setNeo4j(File neo4j) {
 		this.neo4j = neo4j;
 		return this;
 	}
 
-	public VariantContextAnnotator setGnomadGenomes(File gnomadGenomes) {
+	public VariantAnnotator setGnomadGenomes(File gnomadGenomes) {
 		this.gnomadGenomes = gnomadGenomes;
 		return this;
 	}
 
-	public VariantContextAnnotator setGnomadExomes(File gnomadExomes) {
+	public VariantAnnotator setGnomadExomes(File gnomadExomes) {
 		this.gnomadExomes = gnomadExomes;
 		return this;
 	}
 
-	public VariantContextAnnotator setExac(File exac) {
+	public VariantAnnotator setExac(File exac) {
 		this.exac = exac;
 		return this;
 	}
 
-	public VariantContextAnnotator setCompute(boolean compute) {
+	public VariantAnnotator setCompute(boolean compute) {
 		this.compute = compute;
 		return this;
 	}
@@ -129,6 +131,7 @@ class VariantContextAnnotator implements Callable<Void> {
 			System.out.printf("Found %d samples (%s)%n", samples.size(), String.join(", ", samples));
 			// Create consumers depending on the options
 			System.out.println("Adding consumers:");
+			writeCommandLine(variantReader.getHeader());
 			// 1. Additive consumers
 			if (kGenomes != null) {
 				System.out.println(" - 1000G frequencies from " + kGenomes);
@@ -199,6 +202,25 @@ class VariantContextAnnotator implements Callable<Void> {
 		bar.update(1.0, "Completed");
 		bar.stop();
 		return null;
+	}
+
+	private void writeCommandLine(VcfHeader header) {
+		header.addHeaderLine(new SimpleHeaderLine("CommandLine", getCommandLine()));
+	}
+
+	private String getCommandLine() {
+		final StringBuilder builder = new StringBuilder("vcf-tools annotate");
+		for (File input : inputs) builder.append(" --input ").append(input);
+		if (vep != null) builder.append(" --vep ").append(vep);
+		if (kGenomes != null) builder.append(" --1000G ").append(kGenomes);
+		if (genes != null) builder.append(" --gff ").append(genes);
+		if (output != null) builder.append(" --output ").append(output);
+		if (neo4j != null) builder.append(" --neo4j ").append(neo4j);
+		if (gnomadExomes != null) builder.append(" --gnomadExomes ").append(gnomadExomes);
+		if (gnomadGenomes != null) builder.append(" --gnomadGenomes ").append(gnomadGenomes);
+		if (exac != null) builder.append(" --exac ").append(exac);
+		if (compute) builder.append(" --compute-stats");
+		return builder.toString();
 	}
 
 }

@@ -1,5 +1,6 @@
 package org.uichuimi.vcf.utils.consumer.neo4j;
 
+import org.jetbrains.annotations.NotNull;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.utils.Genotype;
 import org.uichuimi.vcf.utils.consumer.VariantConsumer;
@@ -19,7 +20,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * <p>
  * <ul>
  * <li><b>samples -> </b>id:ID(sample)</li>
- * <li><b>variant -> </b>:ID(variant), chrom, pos, ref, alt, rs[], sift, polyphen, effect, amino</li>
+ * <li><b>variant -> </b>:ID(variant), chrom, pos, ref, alt, rs[], sift, polyphen, effect,
+ * amino</li>
  * <li><b>frequencies -> </b>:ID(freq), source, population, value:double</li>
  * <li><b>var2freq -> </b>:START_ID(variant), :END_ID(freq)</li>
  * <li><b>var2gene -> </b>:START_ID(variant), :END_ID(gene)</li>
@@ -27,7 +29,8 @@ import java.util.concurrent.atomic.AtomicLong;
  * <li><b>heterozygous -> </b>:START_ID(sample), :END_ID(variant), ad[], dp:int</li>
  * <li><b>wildtype -> </b>:START_ID(sample), :END_ID(variant), ad[], dp:int</li>
  * </ul>
- * <i>gene</i> refers to Ensembl gene identifier (ENSG0001234). This class is not responsible of the genes table.
+ * <i>gene</i> refers to Ensembl gene identifier (ENSG0001234). This class is not responsible of
+ * the genes table.
  */
 public class Neo4jTablesWriter implements VariantConsumer {
 
@@ -101,108 +104,120 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		}
 	}
 
+	/**
+	 * Adds a variant to the variants table. Since third normal form requires only 1 reference
+	 * allele and 1 alternative allele, this method should be called <em>r * a</em> times, to export
+	 * all combinations in the same variant.
+	 *
+	 * @param variant
+	 * 		the variant
+	 * @param coordinate
+	 * 		the target coordinate
+	 * @param r
+	 * 		index of reference allele in variant.references
+	 * @param a
+	 * 		index of alternative allele in variant.alternatives
+	 * @throws IOException
+	 * 		if any writer is closed
+	 */
 	private void addSimplifiedVariant(Variant variant, Coordinate coordinate, int r, int a) throws IOException {
+		final int absoluteA = variant.getReferences().size() + a;
+		final String variantId = writeVariant(variant, coordinate, a, r);
+
+		writeFrequencies(variant, variantId, a, "1000G", "KG", List.of("EAS", "SAS", "EUR", "AFR", "AMR"));
+		writeFrequencies(variant, variantId, a, "gnomAD_genomes", "GG", List.of("AMR", "AFR", "EAS", "NFE", "FIN", "OTH", "ASJ"));
+		writeFrequencies(variant, variantId, a, "gnomAD_exomes", "GE", List.of("AFR", "AMR", "ASJ", "EAS", "FIN", "NFE", "OTH", "SAS"));
+		writeFrequencies(variant, variantId, a, "ExAC", "EX", List.of("AFR", "AMR", "EAS", "FIN", "NFE", "OTH", "SAS"));
+
+		writeConsequence(variant, variantId, a);
+		writeGene(variant, variantId, a);
+		writeSamples(variant, variantId, r, absoluteA);
+	}
+
+	private String writeVariant(Variant variant, Coordinate coordinate, int a, int r) throws IOException {
 		final String ref = variant.getReferences().get(r);
 		final String alt = variant.getAlternatives().get(a);
-		final String variantId = String.format("%s:%s:%s:%s",
-				coordinate.getChrom(),
-				coordinate.getPosition(),
-				ref,
-				alt);
-		final int absoluteA = variant.getReferences().size() + a;
+		final String chrom = coordinate.getChrom();
+		final int position = coordinate.getPosition();
 
-		final Info info = variant.getInfo();
-		// Variant
-		final List<String> sift = info.get("Sift");
-		final List<String> phen = info.get("Polyphen");
-		final List<String> amino = info.get("AMINO");
-		variants.write(variantId, coordinate.getChrom(), coordinate.getPosition(),
-				ref,
-				alt,
+		final String variantId = String.format("%s:%s:%s:%s", chrom, position, ref, alt);
+		final List<String> sift = variant.getInfo("Sift");
+		final List<String> phen = variant.getInfo("Polyphen");
+		final List<String> amino = variant.getInfo("AMINO");
+		variants.write(variantId, chrom, position, ref, alt,
 				String.join(",", variant.getIdentifiers()),
 				sift == null ? null : sift.get(a),
 				phen == null ? null : phen.get(a),
 				amino == null ? null : amino.get(a)
 		);
+		return variantId;
+	}
 
-		final String effect = info.<List<String>>get("CONS").get(a);
+	private void writeGene(Variant variant, String variantId, int a) throws IOException {
+		final List<String> genes = variant.getInfo("ENSG");
+		if (genes == null) return;
+		final String ensg = genes.get(a);
+		if (ensg != null) var2gene.write(variantId, ensg);
+	}
+
+	private void writeConsequence(Variant variant, String variantId, int a) throws IOException {
+		// CONS is expected to be Number=A or Number=.
+		final List<String> cons = variant.getInfo("CONS");
+		if (cons == null) return;
+		final String effect = cons.get(a);
 		if (effect != null) var2effect.write(variantId, effect);
-		
-		// Frequencies (1000g)
-		for (String pop : List.of("EAS", "SAS", "EUR", "AFR", "AMR")) {
-			final Object score = info.get("KG_" + pop + "_AF");
-			if (score != null) {
-				final long id = frequencyId.incrementAndGet();
-				var2freq.write(variantId, id);
-				frequencies.write(id, "1000G", pop, score);
-			}
-		}
-		// Frequencies (gnomAD genomes)
-		for (String pop : List.of("AMR", "AFR", "EAS", "NFE", "FIN", "OTH", "ASJ")) {
-			final Object score = info.get("GG_" + pop + "_AF");
-			if (score != null) {
-				final long id = frequencyId.incrementAndGet();
-				var2freq.write(variantId, id);
-				frequencies.write(id, "gnomAD_genomes", pop, score);
-			}
-		}
-		// Frequencies (gnomAD exomes)
-		for (String pop : List.of("AFR", "AMR", "ASJ", "EAS", "FIN", "NFE", "OTH", "SAS")) {
-			final Object score = info.get("GE_" + pop + "_AF");
-			if (score != null) {
-				final long id = frequencyId.incrementAndGet();
-				var2freq.write(variantId, id);
-				frequencies.write(id, "gnomAD_exomes", pop, score);
-			}
-		}
-		// Frequencies (ExAC)
-		for (String pop : List.of("AFR", "AMR", "EAS", "FIN", "NFE", "OTH", "SAS")) {
-			final Object score = info.get("EX_" + pop + "_AF");
-			if (score != null) {
-				final long id = frequencyId.incrementAndGet();
-				var2freq.write(variantId, id);
-				frequencies.write(id, "ExAC", pop, score);
-			}
-		}
-		// Samples
+	}
+
+	private void writeSamples(Variant variant, String variantId, int r, int absoluteA) throws IOException {
 		for (int i = 0; i < header.getSamples().size(); i++) {
 			final String sample = header.getSamples().get(i);
-			final String gt = variant.getSampleInfo(i).get("GT");
+			final Info sampleInfo = variant.getSampleInfo(i);
+			final String gt = sampleInfo.get("GT");
 			if (gt == null || gt.equals("./.") || gt.equals(".")) continue;
 
-			final String aad;
-			final Integer ad1 = variant.getSampleInfo(i).<List<Integer>>get("AD").get(r);
-			if (ad1 != null) {
-				// AD has Number=R
-				final Integer ad2 = variant.getSampleInfo(i).<List<Integer>>get("AD").get(absoluteA);
-				aad = String.format("%d,%d", ad1, ad2);
-			} else {
-				// AD has Number=., so it is in global
-				final List<Integer> ad = variant.getSampleInfo(i).get("AD");
-				if (ad == null) aad = "0,0";
-				else {
-					// We take the first and the last AD, since we do not know which are the corresponding alleles
-					final int rd = ad.get(0);
-					final int altD = ad.get(ad.size()- 1);
-					aad = String.format("%s,%s", rd, altD);
-				}
-			}
-			// DP has Number=1, we take it from global
-			Integer dp = variant.getSampleInfo(i).get("DP");
-			if (dp == null) dp = 0;
+			final String alleleDepth = getAlleleDepth(r, absoluteA, sampleInfo);
+			final int readDepth = getReadDepth(sampleInfo);
 
 			final Genotype genotype = Genotype.create(gt);
 			if (genotype.getA() == r && genotype.getB() == r)
-				wildtype.write(sample, variantId, aad, dp);
+				wildtype.write(sample, variantId, alleleDepth, readDepth);
 			else if (genotype.getA() == absoluteA && genotype.getB() == absoluteA)
-				homozygous.write(sample, variantId, aad, dp);
+				homozygous.write(sample, variantId, alleleDepth, readDepth);
 			else if (genotype.getA() == absoluteA || genotype.getB() == absoluteA)
-				heterozygous.write(sample, variantId, aad, dp);
+				heterozygous.write(sample, variantId, alleleDepth, readDepth);
 		}
+	}
 
-		// Genes
-		final String ensg = info.get("ENSG");
-		if (ensg != null) var2gene.write(variantId, ensg);
+	private void writeFrequencies(Variant variant, String variantId, int a, String populationName, String prefix, List<String> populations) throws IOException {
+		// Frequencies are Number=A, so a must be position in alternatives
+		for (String pop : populations) {
+			final List<Float> score = variant.getInfo(String.format("%s_%s_AF", prefix, pop));
+			if (score != null) {
+				final long id = frequencyId.incrementAndGet();
+				var2freq.write(variantId, id);
+				frequencies.write(id, populationName, pop, score.get(a));
+			}
+		}
+	}
+
+	@NotNull
+	private Integer getReadDepth(Info sampleInfo) {
+		final Integer dp = sampleInfo.get("DP");
+		return dp == null ? 0 : dp;
+	}
+
+	private String getAlleleDepth(int r, int absoluteA, Info sampleInfo) {
+		final int refAd;
+		final int altAd;
+		final List<Integer> ad = sampleInfo.get("AD");
+		if (ad == null) {
+			refAd = 0;
+			altAd = 0;
+		} else {
+			refAd = ad.get(r);
+			altAd = ad.get(absoluteA);
+		}
+		return String.format("%d,%d", refAd, altAd);
 	}
 
 	@Override

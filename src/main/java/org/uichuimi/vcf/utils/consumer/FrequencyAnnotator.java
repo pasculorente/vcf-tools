@@ -52,13 +52,12 @@ public abstract class FrequencyAnnotator implements VariantConsumer {
 		final Variant annotated = reader.next(grch38);
 		if (annotated == null) return;
 		// Find common alleles and store indexes
-		// AF is Number=A
 		final Map<Integer, Integer> map = getAlleleMap(variant, annotated);
-		// Merge each annotation
+		if (map.isEmpty()) return;
 		for (FrequencyAnnotation annotation : annotations) {
 			final List<Float> af = annotated.getInfo(annotation.sourceId);
 			if (af == null) continue;
-			final Float[] frs = new Float[map.size()];
+			final Float[] frs = new Float[variant.getAlternatives().size()];
 			map.forEach((v, a) -> frs[v] = af.get(a));
 			variant.setInfo(annotation.targetId, Arrays.asList(frs));
 		}

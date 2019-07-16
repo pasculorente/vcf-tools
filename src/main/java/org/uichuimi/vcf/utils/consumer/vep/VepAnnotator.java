@@ -1,5 +1,6 @@
 package org.uichuimi.vcf.utils.consumer.vep;
 
+import org.jetbrains.annotations.NotNull;
 import org.uichuimi.vcf.header.InfoHeaderLine;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.utils.common.CoordinateUtils;
@@ -147,7 +148,9 @@ public class VepAnnotator implements VariantConsumer {
 	 *     1|G|ENST00000374632]
 	 * </pre>
 	 * being <em>A</em> and <em>C</em> the alternative alleles.
-	 * @param annotation the variant as read from VEP file
+	 *
+	 * @param annotation
+	 * 		the variant as read from VEP file
 	 * @return a map which contains the elements of VarPep indexed
 	 */
 	private Map<String, List<String[]>> collectAlternativePeptides(Variant annotation) {
@@ -186,11 +189,12 @@ public class VepAnnotator implements VariantConsumer {
 		// Collect all consequences by allele
 		final Map<String, List<String[]>> alleles = new HashMap<>();
 		for (String field : ve) {
-			final String[] value = field.split("\\|");
-			if (value.length < 2) {
-				variant.getInfo().set("CONS", Collections.singletonList(value[0]));
+			if (field.equals("intergenic_variant")) {
+				final List<String> list = repeat("intergenic_variant", variant.getAlternatives().size());
+				variant.getInfo().set("CONS", list);
 				return;
 			}
+			final String[] value = field.split("\\|");
 			final String allele = value[1];
 			alleles.computeIfAbsent(allele, a -> new ArrayList<>()).add(value);
 		}
@@ -232,6 +236,14 @@ public class VepAnnotator implements VariantConsumer {
 		variant.setInfo("ENSG", Arrays.asList(ensg));
 		variant.setInfo("BIO", Arrays.asList(bio));
 		variant.setInfo("SYMBOL", Arrays.asList(symbol));
+		// TODO: 16/07/19 should symbol be Number=.?
+	}
+
+	@NotNull
+	private <T> List<T> repeat(T value, int n) {
+		final List<T> list = new ArrayList<>(n);
+		for (int i = 0; i < n; i++) list.add(value);
+		return list;
 	}
 
 	private String[] mostSevereVariantEffect(List<String[]> values) {
