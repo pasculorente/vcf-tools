@@ -5,7 +5,7 @@ import org.uichuimi.vcf.utils.Genotype;
 import org.uichuimi.vcf.utils.consumer.VariantConsumer;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Info;
-import org.uichuimi.vcf.variant.VariantContext;
+import org.uichuimi.vcf.variant.Variant;
 
 import java.io.File;
 import java.io.IOException;
@@ -91,7 +91,7 @@ public class Neo4jTablesWriter implements VariantConsumer {
 	}
 
 	@Override
-	public void accept(VariantContext variant, Coordinate grch38) {
+	public void accept(Variant variant, Coordinate grch38) {
 		try {
 			for (int r = 0; r < variant.getReferences().size(); r++)
 				for (int a = 0; a < variant.getAlternatives().size(); a++)
@@ -101,7 +101,7 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		}
 	}
 
-	private void addSimplifiedVariant(VariantContext variant, Coordinate coordinate, int r, int a) throws IOException {
+	private void addSimplifiedVariant(Variant variant, Coordinate coordinate, int r, int a) throws IOException {
 		final String ref = variant.getReferences().get(r);
 		final String alt = variant.getAlternatives().get(a);
 		final String variantId = String.format("%s:%s:%s:%s",
@@ -111,18 +111,21 @@ public class Neo4jTablesWriter implements VariantConsumer {
 				alt);
 		final int absoluteA = variant.getReferences().size() + a;
 
-		final Info info = variant.getInfo().getAlternativeAllele(a);
+		final Info info = variant.getInfo();
 		// Variant
+		final List<String> sift = info.get("Sift");
+		final List<String> phen = info.get("Polyphen");
+		final List<String> amino = info.get("AMINO");
 		variants.write(variantId, coordinate.getChrom(), coordinate.getPosition(),
 				ref,
 				alt,
-				String.join(",", variant.getIds()),
-				info.get("Sift"),
-				info.get("Polyphen"),
-				info.get("AMINO")
+				String.join(",", variant.getIdentifiers()),
+				sift == null ? null : sift.get(a),
+				phen == null ? null : phen.get(a),
+				amino == null ? null : amino.get(a)
 		);
 
-		final String effect = info.getString("CONS");
+		final String effect = info.<List<String>>get("CONS").get(a);
 		if (effect != null) var2effect.write(variantId, effect);
 		
 		// Frequencies (1000g)
@@ -164,29 +167,29 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		// Samples
 		for (int i = 0; i < header.getSamples().size(); i++) {
 			final String sample = header.getSamples().get(i);
-			final String gt = variant.getSampleInfo(i).getGlobal().getString("GT");
+			final String gt = variant.getSampleInfo(i).get("GT");
 			if (gt == null || gt.equals("./.") || gt.equals(".")) continue;
 
 			final String aad;
-			final Number ad1 = variant.getSampleInfo(i).getAllele(r).getNumber("AD");
+			final Integer ad1 = variant.getSampleInfo(i).<List<Integer>>get("AD").get(r);
 			if (ad1 != null) {
 				// AD has Number=R
-				final Number ad2 = variant.getSampleInfo(i).getAllele(absoluteA).getNumber("AD");
-				aad = String.format("%d,%d", ad1.intValue(), ad2.intValue());
+				final Integer ad2 = variant.getSampleInfo(i).<List<Integer>>get("AD").get(absoluteA);
+				aad = String.format("%d,%d", ad1, ad2);
 			} else {
 				// AD has Number=., so it is in global
-				final Object[] ad = variant.getSampleInfo(i).getGlobal().getArray("AD");
+				final List<Integer> ad = variant.getSampleInfo(i).get("AD");
 				if (ad == null) aad = "0,0";
 				else {
 					// We take the first and the last AD, since we do not know which are the corresponding alleles
-					final int rd = (int) ad[0];
-					final int altD = (int) ad[ad.length - 1];
+					final int rd = ad.get(0);
+					final int altD = ad.get(ad.size()- 1);
 					aad = String.format("%s,%s", rd, altD);
 				}
 			}
 			// DP has Number=1, we take it from global
-			String dp = variant.getSampleInfo(i).getGlobal().getString("DP");
-			if (dp == null) dp = "0";
+			Integer dp = variant.getSampleInfo(i).get("DP");
+			if (dp == null) dp = 0;
 
 			final Genotype genotype = Genotype.create(gt);
 			if (genotype.getA() == r && genotype.getB() == r)
@@ -198,7 +201,7 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		}
 
 		// Genes
-		final String ensg = info.getString("ENSG");
+		final String ensg = info.get("ENSG");
 		if (ensg != null) var2gene.write(variantId, ensg);
 	}
 

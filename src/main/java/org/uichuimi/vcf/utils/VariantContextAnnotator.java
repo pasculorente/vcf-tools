@@ -1,6 +1,6 @@
 package org.uichuimi.vcf.utils;
 
-import org.uichuimi.vcf.input.MultipleVariantContextReader;
+import org.uichuimi.vcf.io.MultipleVariantReader;
 import org.uichuimi.vcf.utils.common.CoordinateUtils;
 import org.uichuimi.vcf.utils.common.GenomeProgress;
 import org.uichuimi.vcf.utils.common.ProgressBar;
@@ -8,7 +8,7 @@ import org.uichuimi.vcf.utils.consumer.*;
 import org.uichuimi.vcf.utils.consumer.neo4j.Neo4jTablesWriter;
 import org.uichuimi.vcf.utils.consumer.vep.VepAnnotator;
 import org.uichuimi.vcf.variant.Coordinate;
-import org.uichuimi.vcf.variant.VariantContext;
+import org.uichuimi.vcf.variant.Variant;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -123,8 +123,8 @@ class VariantContextAnnotator implements Callable<Void> {
 		final List<VariantConsumer> consumers = new ArrayList<>();
 		final ProgressBar bar = new ProgressBar();
 		int c = 0;
-		VariantContext variant = null;
-		try (final MultipleVariantContextReader variantReader = MultipleVariantContextReader.getInstance(inputs)) {
+		Variant variant = null;
+		try (final MultipleVariantReader variantReader = MultipleVariantReader.getInstance(inputs)) {
 			final List<String> samples = variantReader.getHeader().getSamples().stream().sorted().distinct().collect(Collectors.toList());
 			System.out.printf("Found %d samples (%s)%n", samples.size(), String.join(", ", samples));
 			// Create consumers depending on the options

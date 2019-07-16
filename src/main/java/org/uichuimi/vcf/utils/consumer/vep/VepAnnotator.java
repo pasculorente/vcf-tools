@@ -6,8 +6,7 @@ import org.uichuimi.vcf.utils.common.CoordinateUtils;
 import org.uichuimi.vcf.utils.consumer.VariantConsumer;
 import org.uichuimi.vcf.utils.gff.GeneMap;
 import org.uichuimi.vcf.variant.Coordinate;
-import org.uichuimi.vcf.variant.Info;
-import org.uichuimi.vcf.variant.VariantContext;
+import org.uichuimi.vcf.variant.Variant;
 
 import java.io.File;
 import java.util.*;
@@ -52,26 +51,26 @@ public class VepAnnotator implements VariantConsumer {
 	}
 
 	@Override
-	public void accept(VariantContext variant, Coordinate grch38) {
+	public void accept(Variant variant, Coordinate grch38) {
 		// Add VEP annotations
-		final Collection<VariantContext> vepAnnotations = vepReader.getAnnotationList(grch38);
-		for (VariantContext vepAnnotation : vepAnnotations)
+		final Collection<Variant> vepAnnotations = vepReader.getAnnotationList(grch38);
+		for (Variant vepAnnotation : vepAnnotations)
 			annotateVep(variant, vepAnnotation, geneMap);
 	}
 
 	private void addAnnotationHeaders(VcfHeader header) {
-		header.add(new InfoHeaderLine("Sift", "A", "String", "Sift prediction"), true);
-		header.add(new InfoHeaderLine("Polyphen", "A", "String", "Polyphen prediction"), true);
-		header.add(new InfoHeaderLine("CONS", "A", "String", "Ensembl VEP consequence"), true);
-		header.add(new InfoHeaderLine("BIO", "A", "String", "Gene biotype"), true);
-		header.add(new InfoHeaderLine("SYMBOL", "A", "String", "Gene symbol"), true);
-		header.add(new InfoHeaderLine("FT", "A", "String", "Feature type"), true);
-		header.add(new InfoHeaderLine("ENSG", "A", "String", "Ensembl gene id"), true);
-		header.add(new InfoHeaderLine("ENST", "A", "String", "Ensembl transcript id"), true);
-		header.add(new InfoHeaderLine("AMINO", "A", "String", "Amino acid change (ref/alt)"), true);
+		header.addHeaderLine(new InfoHeaderLine("Sift", "A", "String", "Sift prediction"), true);
+		header.addHeaderLine(new InfoHeaderLine("Polyphen", "A", "String", "Polyphen prediction"), true);
+		header.addHeaderLine(new InfoHeaderLine("CONS", "A", "String", "Ensembl VEP consequence"), true);
+		header.addHeaderLine(new InfoHeaderLine("BIO", "A", "String", "Gene biotype"), true);
+		header.addHeaderLine(new InfoHeaderLine("SYMBOL", "A", "String", "Gene symbol"), true);
+		header.addHeaderLine(new InfoHeaderLine("FT", "A", "String", "Feature type"), true);
+		header.addHeaderLine(new InfoHeaderLine("ENSG", "A", "String", "Ensembl gene id"), true);
+		header.addHeaderLine(new InfoHeaderLine("ENST", "A", "String", "Ensembl transcript id"), true);
+		header.addHeaderLine(new InfoHeaderLine("AMINO", "A", "String", "Amino acid change (ref/alt)"), true);
 	}
 
-	private void annotateVep(VariantContext variant, VariantContext vepAnnotation, GeneMap geneMap) {
+	private void annotateVep(Variant variant, Variant vepAnnotation, GeneMap geneMap) {
 		// vepAnnotation has alleles, variant has alleles, we need to find those in both to collect the annotations
 		final List<String> alleles = vepAnnotation.getAlternatives().stream()
 				.filter(variant.getAlternatives()::contains)
@@ -79,9 +78,9 @@ public class VepAnnotator implements VariantConsumer {
 		if (alleles.isEmpty()) return;
 
 		// ID
-		for (String id : vepAnnotation.getIds())
-			if (!variant.getIds().contains(id))
-				variant.getIds().add(id);
+		for (String id : vepAnnotation.getIdentifiers())
+			if (!variant.getIdentifiers().contains(id))
+				variant.getIdentifiers().add(id);
 
 		// VE and RefPep/VarPep can be found inside CSQ
 		parseVariantEffect(variant, vepAnnotation);
@@ -91,27 +90,28 @@ public class VepAnnotator implements VariantConsumer {
 		parseAmino(variant, vepAnnotation);
 	}
 
-	private void parseAmino(VariantContext variant, VariantContext annotation) {
-		if (!annotation.getInfo().getGlobal().hasInfo("RefPep")
-				|| !annotation.getInfo().getGlobal().hasInfo("VarPep")) return;
+	private void parseAmino(Variant variant, Variant annotation) {
+		if (!annotation.getInfo().contains("RefPep")
+				|| !annotation.getInfo().contains("VarPep")) return;
 		final String reference = getReferencePeptide(annotation);
 		// VarPep is indexed by allele
 		final Map<String, List<String[]>> alternativePeptides = collectAlternativePeptides(annotation);
 		List<String> alternatives = variant.getAlternatives();
+		final String[] aminos = new String[variant.getAlternatives().size()];
 		for (int i = 0; i < alternatives.size(); i++) {
 			String allele = alternatives.get(i);
 			final List<String[]> list = alternativePeptides.get(allele);
 			if (list != null) {
 				final String alt = list.get(0)[1];
-				variant.getInfo().getAlternativeAllele(i).set("AMINO", String.format("%s/%s", reference, alt));
+				aminos[i] = String.format("%s/%s", reference, alt);
 			}
 		}
+		variant.setInfo("AMINO", Arrays.asList(aminos));
 	}
 
-	private String getReferencePeptide(VariantContext annotation) {
+	private String getReferencePeptide(Variant annotation) {
 		// RefPep is always a single String
-		final Object[] refPeps = annotation.getInfo().getGlobal().getArray("RefPep");
-		return (String) refPeps[0];
+		return annotation.getInfo().<List<String>>get("RefPep").get(0);
 	}
 
 	/**
@@ -150,11 +150,10 @@ public class VepAnnotator implements VariantConsumer {
 	 * @param annotation the variant as read from VEP file
 	 * @return a map which contains the elements of VarPep indexed
 	 */
-	private Map<String, List<String[]>> collectAlternativePeptides(VariantContext annotation) {
-		final Object[] varPeps = annotation.getInfo().getGlobal().getArray("VarPep");
+	private Map<String, List<String[]>> collectAlternativePeptides(Variant annotation) {
+		final List<String> varPeps = annotation.getInfo().get("VarPep");
 		final Map<String, List<String[]>> alternativePeptides = new HashMap<>();
-		for (Object varPep : varPeps) {
-			final String element = (String) varPep;
+		for (String element : varPeps) {
 			final String[] values = element.split("\\|");
 			// some RefPep miss the index
 			if (values.length != 3) continue;
@@ -165,7 +164,7 @@ public class VepAnnotator implements VariantConsumer {
 		return alternativePeptides;
 	}
 
-	private void parseVariantEffect(VariantContext variant, VariantContext vepAnnotation) {
+	private void parseVariantEffect(Variant variant, Variant vepAnnotation) {
 		// VE:
 		//  Variant effect of a variant overlapping a sequence feature as computed by the ensembl variant effect pipeline.
 		//   Format=Consequence|Index|Feature_type|Feature_id.
@@ -182,48 +181,57 @@ public class VepAnnotator implements VariantConsumer {
 		// A|splice_region_variant|primary_transcript|ENST00000649066|P/L|deleterious(0),
 		// A|splice_region_variant|primary_transcript|ENST00000374866|P/L|deleterious(0)
 
-		final Object[] ve = vepAnnotation.getInfo().getGlobal().getArray("VE");
+		final List<String> ve = vepAnnotation.getInfo().get("VE");
 		if (ve == null) return;
 		// Collect all consequences by allele
 		final Map<String, List<String[]>> alleles = new HashMap<>();
-		for (Object field : ve) {
-			final String[] value = ((String) field).split("\\|");
+		for (String field : ve) {
+			final String[] value = field.split("\\|");
 			if (value.length < 2) {
-				// VE=intergenic_variant
-				for (int i = 0; i < variant.getAlternatives().size(); i++)
-					variant.getInfo().getAlternativeAllele(i).set("CONS", value[0]);
+				variant.getInfo().set("CONS", Collections.singletonList(value[0]));
 				return;
 			}
 			final String allele = value[1];
 			alleles.computeIfAbsent(allele, a -> new ArrayList<>()).add(value);
 		}
+		String[] cons = new String[variant.getAlternatives().size()];
+		String[] feat = new String[variant.getAlternatives().size()];
+		String[] enst = new String[variant.getAlternatives().size()];
+		String[] ensg = new String[variant.getAlternatives().size()];
+		String[] bio = new String[variant.getAlternatives().size()];
+		String[] symbol = new String[variant.getAlternatives().size()];
 		alleles.forEach((index, values) -> {
 			final int i = Integer.parseInt(index);
 			final String allele = vepAnnotation.getAlternatives().get(i);
 			final int pos = variant.getAlternatives().indexOf(allele);
 			if (pos >= 0) {
-				final Info info = variant.getInfo().getAlternativeAllele(0);
 				final String[] effect = mostSevereVariantEffect(values);
-				info.set("CONS", effect[0]);
-				info.set("FT", effect[2]);  // it is also valid to use transcript.getType()
+				cons[pos] = effect[0];
+				feat[pos] = effect[2];  // it is also valid to use transcript.getType()
 				final GeneMap.Transcript transcript = geneMap.getTranscript(effect[3]);
 				if (transcript != null) {
-					info.set("ENST", transcript.getId());
-					info.set("BIO", transcript.getBiotype());
+					enst[pos] = transcript.getId();
+					bio[pos] = transcript.getBiotype();
 					final GeneMap.Gene gene = geneMap.fromTranscript(effect[3]);
 					if (gene != null) {
-						info.set("ENSG", gene.getId());
-						info.set("SYMBOL", gene.getName());
+						ensg[pos] = gene.getId();
+						symbol[pos] = gene.getName();
 					}
 				} else {
 					GeneMap.Gene gene = geneMap.findGene(CoordinateUtils.toGrch38(variant.getCoordinate()));
 					if (gene != null) {
-						info.set("ENSG", gene.getId());
-						info.set("SYMBOL", gene.getName());
+						ensg[pos] = gene.getId();
+						symbol[pos] = gene.getName();
 					}
 				}
 			}
 		});
+		variant.setInfo("CONS", Arrays.asList(cons));
+		variant.setInfo("FT", Arrays.asList(feat));
+		variant.setInfo("ENST", Arrays.asList(enst));
+		variant.setInfo("ENSG", Arrays.asList(ensg));
+		variant.setInfo("BIO", Arrays.asList(bio));
+		variant.setInfo("SYMBOL", Arrays.asList(symbol));
 	}
 
 	private String[] mostSevereVariantEffect(List<String[]> values) {
@@ -235,7 +243,7 @@ public class VepAnnotator implements VariantConsumer {
 				.orElse(null);
 	}
 
-	private void parseSift(VariantContext variant, VariantContext vepAnnotation) {
+	private void parseSift(Variant variant, Variant vepAnnotation) {
 		// Prediction for effect of missense variant on protein function as computed by Sift.
 
 		// ID=Sift,Number=.,Type=String
@@ -247,27 +255,28 @@ public class VepAnnotator implements VariantConsumer {
 
 		// Sift=0|deleterious_-_low_confidence|0.02|ENST00000379268,0|deleterious_-_low_confidence|0.01|ENST00000328596,0|deleterious_-_low_confidence|0.02|ENST00000379265;AA=A;RefPep=M;VE=start_lost|0|mRNA|ENST00000379268,start_lost|0|mRNA|ENST00000328596,start_lost|0|mRNA|ENST00000379265;CSQ=G|start_lost|mRNA|ENST00000379265|M/T|deleterious_-_low_confidence(0.02),G|start_lost|mRNA|ENST00000379268|M/T|deleterious_-_low_confidence(0.02),G|start_lost|mRNA|ENST00000328596|M/T|deleterious_-_low_confidence(0.01)
 		// Sift=1|tolerated|0.12|ENST00000378567,1|tolerated|0.17|ENST00000468310,1|tolerated|0.13|ENST00000503297
-		final Object[] siftInfo = vepAnnotation.getInfo().getGlobal().getArray("Sift");
+		final List<String> siftInfo = vepAnnotation.getInfo().get("Sift");
 		if (siftInfo == null) return;
 		final Map<String, List<String[]>> indexes = collectPredictions(siftInfo);
 
+		final String[] sift = new String[variant.getAlternatives().size()];
 		indexes.forEach((index, values) -> {
 			final int i = Integer.parseInt(index);
 			final String allele = vepAnnotation.getAlternatives().get(i);
 			final int pos = variant.getAlternatives().indexOf(allele);
 			if (pos >= 0) {
-				final Info info = variant.getInfo().getAlternativeAllele(pos);
 				final String[] value = mostSevereSift(values);
-				info.set("Sift", value[1].replace("_-_low_confidence", ""));
+				sift[pos] = value[1].replace("_-_low_confidence", "");
 			}
 		});
+		variant.setInfo("Sift", Arrays.asList(sift));
 	}
 
-	private Map<String, List<String[]>> collectPredictions(Object[] siftInfo) {
+	private Map<String, List<String[]>> collectPredictions(List<String> siftInfo) {
 		// Collect all consequences by index
 		final Map<String, List<String[]>> indexes = new HashMap<>();
-		for (Object field : siftInfo) {
-			final String[] value = ((String) field).split("\\|");
+		for (String field : siftInfo) {
+			final String[] value = field.split("\\|");
 			if (value.length < 4) continue;
 			final String index = value[0];
 			indexes.computeIfAbsent(index, a -> new ArrayList<>()).add(value);
@@ -279,7 +288,7 @@ public class VepAnnotator implements VariantConsumer {
 		return values.stream().min(Comparator.comparingDouble(x -> Double.valueOf(x[2]))).orElse(null);
 	}
 
-	private void parsePolyphen(VariantContext variant, VariantContext vepAnnotation) {
+	private void parsePolyphen(Variant variant, Variant vepAnnotation) {
 		// Prediction for effect of missense variant on protein function as computed by Polyphen (human only).
 
 		// ID=Polyphen,Number=.,Type=String
@@ -292,28 +301,29 @@ public class VepAnnotator implements VariantConsumer {
 		// Polyphen=0|benign|0.017|ENST00000379268,0|benign|0.027|ENST00000328596,0|benign|0.017|ENST00000379265
 		// Polyphen=1|benign|0.04|ENST00000378567,1|benign|0.081|ENST00000468310,1|benign|0.04|ENST0000050329
 
-		final Object[] polyphen = vepAnnotation.getInfo().getGlobal().getArray("Polyphen");
+		final List<String> polyphen = vepAnnotation.getInfo().get("Polyphen");
 		if (polyphen == null) return;
 		// Collect all predictions by index
 		final Map<String, List<String[]>> indexes = collectPredictions(polyphen);
 
+		final String[] ppn = new String[variant.getAlternatives().size()];
 		indexes.forEach((index, values) -> {
 			final int i = Integer.parseInt(index);
 			final String allele = vepAnnotation.getAlternatives().get(i);
 			final int pos = variant.getAlternatives().indexOf(allele);
 			if (pos >= 0) {
-				final Info info = variant.getInfo().getAlternativeAllele(pos);
 				final String[] value = mostSeverePolyphen(values);
-				info.set("Polyphen", value[1]);
+				ppn[pos] = value[1];
 			}
 		});
+		variant.setInfo("Polyphen", Arrays.asList(ppn));
 	}
 
 	private String[] mostSeverePolyphen(List<String[]> values) {
 		return values.stream().max(Comparator.comparingDouble(x -> Double.valueOf(x[2]))).orElse(null);
 	}
 
-	private void parseConsequence(VariantContext variant, VariantContext vepAnnotation, GeneMap geneMap) {
+	private void parseConsequence(Variant variant, Variant vepAnnotation, GeneMap geneMap) {
 		// Consequence annotations from Ensembl's Variant Effect Pipeline.
 
 		// ID=CSQ,Number=.,Type=String

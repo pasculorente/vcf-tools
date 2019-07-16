@@ -3,7 +3,7 @@ package org.uichuimi.vcf.utils.consumer;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.utils.Genotype;
 import org.uichuimi.vcf.variant.Coordinate;
-import org.uichuimi.vcf.variant.VariantContext;
+import org.uichuimi.vcf.variant.Variant;
 
 import java.util.Arrays;
 import java.util.Objects;
@@ -19,28 +19,27 @@ public class StatsCalculator implements VariantConsumer {
 	}
 
 	@Override
-	public void accept(VariantContext variant, Coordinate grch38) {
+	public void accept(Variant variant, Coordinate grch38) {
 		dp(variant);
 		ac(variant);
 //		qd(variant);
 	}
 
-	private void dp(VariantContext variant) {
-		final int dp = IntStream.range(0, header.getSamples().size())
-				.mapToObj(i -> variant.getSampleInfo(i).getGlobal().getNumber("DP"))
+	private void dp(Variant variant) {
+		final long dp = IntStream.range(0, header.getSamples().size())
+				.mapToLong(i -> variant.getSampleInfo(i).get("DP"))
 				.filter(Objects::nonNull)
-				.mapToInt(Number::intValue)
 				.sum();
-		variant.getInfo().getGlobal().set("DP", dp);
+		variant.setInfo("DP", dp);
 	}
 
-	private void ac(VariantContext variant) {
+	private void ac(Variant variant) {
 		// Alternative allele count
 		// AC, number of times an allele has been observed
 		// AN, number of alleles observed, including reference
 		int[] ac = new int[variant.getAlleles().size()];
 		for (int s = 0; s < header.getSamples().size(); s++) {
-			final String gt = variant.getSampleInfo(s).getGlobal().getString("GT");
+			final String gt = variant.getSampleInfo(s).get("GT");
 			if (gt == null) continue;
 			final Genotype genotype = Genotype.create(gt);
 			ac[genotype.getA()]++;
@@ -48,18 +47,17 @@ public class StatsCalculator implements VariantConsumer {
 		}
 		// This do take into account all alleles, including reference
 		final int an = Arrays.stream(ac).sum();
-		variant.getInfo().getGlobal().set("AN", an);
+		variant.setInfo("AN", an);
 		// Skip the reference allele, since AC has Number=A
+		final Integer[] acArray = new Integer[variant.getAlternatives().size()];
+		final Float[] afArray = new Float[variant.getAlternatives().size()];
 		for (int a = 1; a < ac.length; a++) {
-			variant.getInfo().getAllele(a).set("AC", ac[a]);
-			variant.getInfo().getAllele(a).set("AF", (float) ac[a] / an);
+			acArray[a] = ac[a];
+			afArray[a] = (float) ac[a] / an;
 		}
+		variant.setInfo("AC", Arrays.asList(acArray));
+		variant.setInfo("AF", Arrays.asList(afArray));
 
-	}
-
-	private void qd(VariantContext variant) {
-		final float qd = (float) (variant.getQuality() / variant.getInfo().getGlobal().getNumber("DP").intValue());
-		variant.getInfo().getGlobal().set("QD", qd);
 	}
 
 	@Override

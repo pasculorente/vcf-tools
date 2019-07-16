@@ -1,9 +1,9 @@
 package org.uichuimi.vcf.utils.consumer.vep;
 
-import org.uichuimi.vcf.input.VariantContextReader;
+import org.uichuimi.vcf.io.VariantReader;
 import org.uichuimi.vcf.utils.common.FileUtils;
 import org.uichuimi.vcf.variant.Coordinate;
-import org.uichuimi.vcf.variant.VariantContext;
+import org.uichuimi.vcf.variant.Variant;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -17,10 +17,10 @@ import java.util.List;
 class VepReader implements AutoCloseable {
 
 	private final File path;
-	private VariantContextReader reader;
+	private VariantReader reader;
 
 	private String chromosome = null;
-	private VariantContext current;
+	private Variant current;
 
 	private static final String FORMAT = "homo_sapiens_incl_consequences-chr%s.vcf.gz";
 
@@ -33,12 +33,12 @@ class VepReader implements AutoCloseable {
 		this.path = path;
 	}
 
-	public Collection<VariantContext> getAnnotationList(Coordinate coordinate) {
+	public Collection<Variant> getAnnotationList(Coordinate coordinate) {
 		openReader(coordinate.getChrom());
 		if (reader == null) return Collections.emptyList();
 		if (current == null) current = reader.next();
 		// vep can store 1 variant context in more than 1 line
-		final List<VariantContext> contexts = new ArrayList<>();
+		final List<Variant> contexts = new ArrayList<>();
 
 		while (current != null) {
 			// Compare only the position, chromosome is already the same
@@ -60,7 +60,7 @@ class VepReader implements AutoCloseable {
 			close();
 			final File file = new File(path, String.format(FORMAT, chrom));
 			if (!file.exists()) return;
-			this.reader = new VariantContextReader(FileUtils.getInputStream(file));
+			this.reader = new VariantReader(FileUtils.getInputStream(file));
 			chromosome = chrom;
 			current = null;
 		} catch (Exception e) {

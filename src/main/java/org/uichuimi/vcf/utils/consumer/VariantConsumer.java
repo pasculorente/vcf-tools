@@ -2,13 +2,13 @@ package org.uichuimi.vcf.utils.consumer;
 
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.variant.Coordinate;
-import org.uichuimi.vcf.variant.VariantContext;
+import org.uichuimi.vcf.variant.Variant;
 
 public interface VariantConsumer {
 
 	void start(VcfHeader header);
 
-	void accept(VariantContext variant, Coordinate grch38);
+	void accept(Variant variant, Coordinate grch38);
 
 	void close();
 }
