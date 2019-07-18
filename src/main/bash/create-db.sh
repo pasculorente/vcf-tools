@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 files="/media/pascual/Resources/uichuimi/neo4j/"
-neo4j="/media/pascual/Resources/uichuimi/neo4j-community-3.5.7"
+neo4j="/home/pascual/neo4j"
 
 rm -r "${neo4j}/data/databases/graph.db"
 

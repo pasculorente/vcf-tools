@@ -26,7 +26,7 @@ public class GeneMap {
 
 	private final Map<String, List<Gene>> chromosomes = new HashMap<>();
 	private final Map<String, Transcript> transcripts = new HashMap<>();
-	private final Map<String, Gene> geneMap = new HashMap<>();
+	private final Map<String, Gene> genes = new HashMap<>();
 
 	public GeneMap(File path) {
 		readGenes(path);
@@ -39,11 +39,11 @@ public class GeneMap {
 				final Feature feature = parse(line);
 				if (feature instanceof Gene) {
 					final Gene gene = (Gene) feature;
-					chromosomes.computeIfAbsent(gene.chromosome, c -> new ArrayList<>()).add(gene);
-					geneMap.put(gene.id, gene);
+					chromosomes.computeIfAbsent(gene.getChromosome(), c -> new ArrayList<>()).add(gene);
+					genes.put(gene.getId(), gene);
 				} else if (feature instanceof Transcript) {
 					final Transcript transcript = (Transcript) feature;
-					transcripts.put(transcript.id, transcript);
+					transcripts.put(transcript.getId(), transcript);
 				}
 			}
 
@@ -51,6 +51,7 @@ public class GeneMap {
 			e.printStackTrace();
 		}
 		for (List<Gene> list : chromosomes.values()) list.sort(Gene::compareTo);
+		for (Gene gene : genes.values()) gene.getTranscripts().sort(Transcript::compareTo);
 	}
 
 	private Feature parse(String line) {
@@ -75,8 +76,7 @@ public class GeneMap {
 		// bidirectional_promoter_lncRNA, biological_region, CDS, chromosome, exon, five_prime_UTR, gene, lnc_RNA,
 		// miRNA, mRNA, ncRNA, ncRNA_gene, pseudogene, pseudogenic_transcript, rRNA, scRNA, snoRNA, snRNA,
 		// three_prime_overlapping_ncrna, three_prime_UTR, transcript, unconfirmed_transcript
-		// final String type = row[2];
-
+		 final String type = row[2];
 		//   start     - start position of the feature in positive 1-based integer coordinates
 		//               always less than or equal to end
 		final Integer start = Integer.valueOf(row[3]);
@@ -136,8 +136,8 @@ public class GeneMap {
 			}
 		}
 		if (typ == null) return null;
-		if (typ.equals("gene")) return new Gene(id, name, biotype, chrom, start, end);
-		else if (typ.equals("transcript")) return new Transcript(id, typ, parent, biotype);
+		if (typ.equals("gene")) return new Gene(id, type, name, biotype, chrom, start, end);
+		else if (typ.equals("transcript")) return new Transcript(id, type, genes.get(parent), biotype, start, end);
 		return null;
 	}
 
@@ -145,80 +145,19 @@ public class GeneMap {
 		return transcripts.get(transcriptId);
 	}
 
-	public Gene fromTranscript(String transcriptId) {
-		final Transcript transcript = transcripts.get(transcriptId);
-		return geneMap.get(transcript.geneId);
-	}
-
 	public Gene findGene(Coordinate coordinate) {
 		final List<Gene> genes = chromosomes.get(coordinate.getChrom());
 		if (genes == null) return null;
 		for (Gene gene : genes)
-			if (gene.start <= coordinate.getPosition() && coordinate.getPosition() <= gene.end)
+			if (gene.getStart() <= coordinate.getPosition() && coordinate.getPosition() <= gene.getEnd())
 				return gene;
 		return null;
 	}
 
-
-	private class Feature {
-	}
-
-	public class Transcript extends Feature {
-
-		private final String id;
-		private final String type;
-		private final String geneId;
-		private final String biotype;
-
-		Transcript(String id, String type, String geneId, String biotype) {
-			this.id = id;
-			this.type = type;
-			this.geneId = geneId;
-			this.biotype = biotype;
-		}
-
-		public String getId() {
-			return id;
-		}
-
-		public String getBiotype() {
-			return biotype;
-		}
-
-	}
-
-	public class Gene extends Feature implements Comparable<Gene> {
-		private final String chromosome;
-		private final String id;
-		private final String name;
-		private final String biotype;
-		private final Integer start;
-		private final Integer end;
-
-		Gene(String id, String name, String biotype, String chromosome, Integer start, Integer end) {
-			this.id = id;
-			this.name = name;
-			this.biotype = biotype;
-			this.chromosome = chromosome;
-			this.start = start;
-			this.end = end;
-		}
-
-		public String getId() {
-			return id;
-		}
-
-		public String getName() {
-			return name;
-		}
-
-		@Override
-		public int compareTo(Gene other) {
-			if (other == this) return 0;
-			final int compare = Integer.compare(start, other.start);
-			if (compare != 0) return compare;
-			return Integer.compare(end, other.end);
-		}
+	public Gene getGene(Coordinate coordinate) {
+		final List<Gene> genes = chromosomes.get(coordinate.getChrom());
+		if (genes == null || genes.isEmpty()) return null;
+		return Feature.binarySearch(genes, coordinate.getPosition());
 	}
 
 }

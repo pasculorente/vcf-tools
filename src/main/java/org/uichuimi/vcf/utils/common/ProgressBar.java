@@ -59,4 +59,8 @@ public class ProgressBar {
 				TimeUnit.NANOSECONDS.toMinutes(nanos) % TimeUnit.HOURS.toMinutes(1),
 				TimeUnit.NANOSECONDS.toSeconds(nanos) % TimeUnit.MINUTES.toSeconds(1));
 	}
+
+	public long getElapsedNanos() {
+		return System.nanoTime() - start;
+	}
 }

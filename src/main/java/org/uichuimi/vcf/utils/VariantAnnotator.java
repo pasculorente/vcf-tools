@@ -16,6 +16,7 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static picocli.CommandLine.Command;
@@ -186,7 +187,9 @@ class VariantAnnotator implements Callable<Void> {
 
 				if (++c % 1000 == 0) {
 					final double progress = GenomeProgress.getProgress(grch38);
-					final String message = String.format("%,d %s %,d", c, coordinate.getChrom(), coordinate.getPosition());
+					final long l = TimeUnit.NANOSECONDS.toSeconds(bar.getElapsedNanos());
+					final long sitesPerSecond = c / (1 + l); // avoid division by 0
+					final String message = String.format("%,d (%d sites/sec) %s %,d", c, sitesPerSecond, coordinate.getChrom(), coordinate.getPosition());
 					bar.update(progress, message);
 				}
 			}

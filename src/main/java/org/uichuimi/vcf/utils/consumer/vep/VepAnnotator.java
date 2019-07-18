@@ -3,17 +3,16 @@ package org.uichuimi.vcf.utils.consumer.vep;
 import org.jetbrains.annotations.NotNull;
 import org.uichuimi.vcf.header.InfoHeaderLine;
 import org.uichuimi.vcf.header.VcfHeader;
-import org.uichuimi.vcf.utils.common.CoordinateUtils;
 import org.uichuimi.vcf.utils.consumer.VariantConsumer;
+import org.uichuimi.vcf.utils.gff.Gene;
 import org.uichuimi.vcf.utils.gff.GeneMap;
+import org.uichuimi.vcf.utils.gff.Transcript;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
 
 import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
-
-import static java.util.Comparator.comparingInt;
 
 /**
  * Takes VEP files as source and annotates variants using VEP data. Variants should be provided in
@@ -179,10 +178,6 @@ public class VepAnnotator implements VariantConsumer {
 		// splice_region_variant|0|primary_transcript|ENST00000374866,
 		// missense_variant|0|mRNA|ENST00000649066,
 		// splice_region_variant|0|primary_transcript|ENST00000649066
-		// CSQ=
-		// A|splice_region_variant|primary_transcript|ENST00000618828|P/L|deleterious(0),
-		// A|splice_region_variant|primary_transcript|ENST00000649066|P/L|deleterious(0),
-		// A|splice_region_variant|primary_transcript|ENST00000374866|P/L|deleterious(0)
 
 		final List<String> ve = vepAnnotation.getInfo().get("VE");
 		if (ve == null) return;
@@ -210,33 +205,33 @@ public class VepAnnotator implements VariantConsumer {
 			final int pos = variant.getAlternatives().indexOf(allele);
 			if (pos >= 0) {
 				final String[] effect = mostSevereVariantEffect(values);
+				// [0] = Consequence
+				// [1] = Index
+				// [2] = Feature_type
+				// [3] = Feature_id
 				cons[pos] = effect[0];
-				feat[pos] = effect[2];  // it is also valid to use transcript.getType()
-				final GeneMap.Transcript transcript = geneMap.getTranscript(effect[3]);
+				final Transcript transcript = geneMap.getTranscript(effect[3]);
 				if (transcript != null) {
 					enst[pos] = transcript.getId();
+					feat[pos] = transcript.getType();
 					bio[pos] = transcript.getBiotype();
-					final GeneMap.Gene gene = geneMap.fromTranscript(effect[3]);
-					if (gene != null) {
-						ensg[pos] = gene.getId();
-						symbol[pos] = gene.getName();
-					}
-				} else {
-					GeneMap.Gene gene = geneMap.findGene(CoordinateUtils.toGrch38(variant.getCoordinate()));
-					if (gene != null) {
-						ensg[pos] = gene.getId();
-						symbol[pos] = gene.getName();
-					}
+					final Gene gene = transcript.getGene();
+					ensg[pos] = gene.getId();
+					symbol[pos] = gene.getName();
 				}
 			}
 		});
-		variant.setInfo("CONS", Arrays.asList(cons));
-		variant.setInfo("FT", Arrays.asList(feat));
-		variant.setInfo("ENST", Arrays.asList(enst));
-		variant.setInfo("ENSG", Arrays.asList(ensg));
-		variant.setInfo("BIO", Arrays.asList(bio));
-		variant.setInfo("SYMBOL", Arrays.asList(symbol));
-		// TODO: 16/07/19 should symbol be Number=.?
+		setIfAnyNotNull(variant, cons, "CONS");
+		setIfAnyNotNull(variant, feat, "FT");
+		setIfAnyNotNull(variant, enst, "ENST");
+		setIfAnyNotNull(variant, ensg, "ENSG");
+		setIfAnyNotNull(variant, bio, "BIO");
+		setIfAnyNotNull(variant, symbol, "SYMBOL");
+	}
+
+	private void setIfAnyNotNull(Variant variant, String[] cons, String tag) {
+		if (Arrays.stream(cons).anyMatch(Objects::nonNull))
+			variant.setInfo(tag, Arrays.asList(cons));
 	}
 
 	@NotNull
