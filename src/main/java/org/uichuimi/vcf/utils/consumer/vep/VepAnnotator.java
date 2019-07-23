@@ -36,6 +36,7 @@ public class VepAnnotator implements VariantConsumer {
 			"regulatory_region_ablation", "regulatory_region_amplification", "feature_elongation",
 			"regulatory_region_variant", "feature_truncation", "intergenic_variant"
 	);
+	public static final EnsemblRest ENSEMBL_REST = new EnsemblRest("http://rest.ensembl.org/");
 
 	private final GeneMap geneMap;
 	private final VepReader vepReader;
@@ -54,8 +55,11 @@ public class VepAnnotator implements VariantConsumer {
 	public void accept(Variant variant, Coordinate grch38) {
 		// Add VEP annotations
 		final Collection<Variant> vepAnnotations = vepReader.getAnnotationList(grch38);
+		boolean annotated = false;
 		for (Variant vepAnnotation : vepAnnotations)
-			annotateVep(variant, vepAnnotation, geneMap);
+			annotated |= annotateVep(variant, vepAnnotation, geneMap);
+		if (!annotated) denovo(variant, grch38);
+//			addGene(variant, grch38, geneMap);
 	}
 
 	private void addAnnotationHeaders(VcfHeader header) {
@@ -70,12 +74,12 @@ public class VepAnnotator implements VariantConsumer {
 		header.addHeaderLine(new InfoHeaderLine("AMINO", "A", "String", "Amino acid change (ref/alt)"), true);
 	}
 
-	private void annotateVep(Variant variant, Variant vepAnnotation, GeneMap geneMap) {
+	private boolean annotateVep(Variant variant, Variant vepAnnotation, GeneMap geneMap) {
 		// vepAnnotation has alleles, variant has alleles, we need to find those in both to collect the annotations
 		final List<String> alleles = vepAnnotation.getAlternatives().stream()
 				.filter(variant.getAlternatives()::contains)
 				.collect(Collectors.toList());
-		if (alleles.isEmpty()) return;
+		if (alleles.isEmpty()) return false;
 
 		// ID
 		for (String id : vepAnnotation.getIdentifiers())
@@ -88,6 +92,7 @@ public class VepAnnotator implements VariantConsumer {
 		parsePolyphen(variant, vepAnnotation);
 		parseConsequence(variant, vepAnnotation, geneMap);
 		parseAmino(variant, vepAnnotation);
+		return true;
 	}
 
 	private void parseAmino(Variant variant, Variant annotation) {
@@ -382,11 +387,22 @@ public class VepAnnotator implements VariantConsumer {
 //		});
 	}
 
-	private String[] mostSevereConsequence(List<String[]> consequences) {
-		// Simply sort by CONS_SEVERITY and take the max one
-		return consequences.stream()
-				.min(comparingInt(vals -> CONS_SEVERITY.indexOf(vals[1])))
-				.orElse(null);
+	private void addGene(Variant variant, Coordinate grch38, GeneMap geneMap) {
+		if (variant.getInfo().contains("CONS")) return;
+		final Gene gene = geneMap.getGene(grch38);
+		if (gene == null) return;
+		final int alleles = variant.getAlternatives().size();
+		variant.setInfo("SYMBOL", repeat(gene.getName(), alleles));
+		variant.setInfo("ENSG", repeat(gene.getId(), alleles));
+		final Transcript transcript = gene.getTranscript(grch38.getPosition());
+		if (transcript == null) return;
+		variant.setInfo("ENST", repeat(transcript.getId(), alleles));
+		variant.setInfo("FT", repeat(transcript.getType(), alleles));
+		variant.setInfo("BIO", repeat(transcript.getBiotype(), alleles));
+	}
+
+	private void denovo(Variant variant, Coordinate grch38) {
+		ENSEMBL_REST.annotate(variant, grch38);
 	}
 
 	@Override
