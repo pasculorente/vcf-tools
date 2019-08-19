@@ -8,7 +8,9 @@ import org.uichuimi.vcf.utils.common.GenomeProgress;
 import org.uichuimi.vcf.utils.common.ProgressBar;
 import org.uichuimi.vcf.utils.consumer.*;
 import org.uichuimi.vcf.utils.consumer.neo4j.Neo4jTablesWriter;
+import org.uichuimi.vcf.utils.consumer.snpeff.SnpEffExtractor;
 import org.uichuimi.vcf.utils.consumer.vep.VepAnnotator;
+import org.uichuimi.vcf.utils.gff.GeneMap;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
 
@@ -70,6 +72,10 @@ class VariantAnnotator implements Callable<Void> {
 
 	@Option(names = {"--compute-stats"}, description = "Whether to compute DP, AN, AC and AF again.")
 	private boolean compute;
+
+	@Option(names = {"--snpeff"}, description = "Whether the input file or stream contains snpeff ANN. In this case extract consequence info from this INFO.")
+	private Boolean snpeff;
+	private GeneMap geneMap;
 
 	public VariantAnnotator() {
 	}
@@ -138,10 +144,18 @@ class VariantAnnotator implements Callable<Void> {
 				System.out.println(" - 1000G frequencies from " + kGenomes);
 				consumers.add(new KGenomesAnnotator(kGenomes));
 			}
+			if (genes != null) {
+				System.out.println("    - Genes are taken from " + genes);
+				geneMap = new GeneMap(genes);
+
+			}
 			if (vep != null && genes != null) {
 				System.out.println(" - Variant effect predictions from " + vep);
-				System.out.println("    - Genes are taken from " + genes);
-				consumers.add(new VepAnnotator(genes, vep));
+				consumers.add(new VepAnnotator(vep, geneMap));
+			}
+			if (snpeff != null && snpeff) {
+				System.out.println(" - Extracting consequences from ANN tag");
+				consumers.add(new SnpEffExtractor(geneMap));
 			}
 			if (gnomadGenomes != null) {
 				System.out.println(" - Adding gnomAD genomes frequencies from " + gnomadGenomes);
@@ -223,6 +237,7 @@ class VariantAnnotator implements Callable<Void> {
 		if (gnomadGenomes != null) builder.append(" --gnomadGenomes ").append(gnomadGenomes);
 		if (exac != null) builder.append(" --exac ").append(exac);
 		if (compute) builder.append(" --compute-stats");
+		if (snpeff != null) builder.append(" --snpeff");
 		return builder.toString();
 	}
 

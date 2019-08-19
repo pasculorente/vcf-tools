@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * This class has 2 tasks:
@@ -27,6 +28,7 @@ public class GeneMap {
 	private final Map<String, List<Gene>> chromosomes = new HashMap<>();
 	private final Map<String, Transcript> transcripts = new HashMap<>();
 	private final Map<String, Gene> genes = new HashMap<>();
+	private Map<String, List<Gene>> genesBySymbol;
 
 	public GeneMap(File path) {
 		readGenes(path);
@@ -52,6 +54,7 @@ public class GeneMap {
 		}
 		for (List<Gene> list : chromosomes.values()) list.sort(Gene::compareTo);
 		for (Gene gene : genes.values()) gene.getTranscripts().sort(Transcript::compareTo);
+		genesBySymbol = genes.values().stream().collect(Collectors.groupingBy(Gene::getName));
 	}
 
 	private Feature parse(String line) {
@@ -160,4 +163,7 @@ public class GeneMap {
 		return Feature.binarySearch(genes, coordinate.getPosition());
 	}
 
+	public List<Gene> getGeneBySymbol(String symbol) {
+		return genesBySymbol.get(symbol);
+	}
 }
