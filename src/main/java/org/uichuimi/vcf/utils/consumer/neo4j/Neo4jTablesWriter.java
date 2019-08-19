@@ -34,6 +34,7 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class Neo4jTablesWriter implements VariantConsumer {
 
+	private final static AtomicLong NEXT_ID = new AtomicLong();
 	private final TableWriter samples;
 	private final TableWriter homozygous;
 	private final TableWriter heterozygous;
@@ -60,8 +61,9 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		wildtype = new TableWriter(new File(path, "wild.tsv.gz"), columns);
 
 		// (:Variant)
-		final List<String> cols = new ArrayList<>(List.of(":ID(variant)", "chrom", "pos:int", "ref:string",
-				"alt:string", "rs:string[]", "sift:string", "polyphen:string", "amino:string"));
+		final List<String> cols = new ArrayList<>(List.of(":ID(variant)", "chrom", "pos:int",
+				"ref:string", "alt:string", "identifier:string", "sift:string", "polyphen:string",
+				"amino:string"));
 		variants = new TableWriter(new File(path, "Variants.tsv.gz"), cols);
 
 		// (:Variant)-[:PREDICTION]->(:Prediction{source:"sift", prediction: "benign"})
@@ -144,8 +146,11 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		final List<String> sift = variant.getInfo("Sift");
 		final List<String> phen = variant.getInfo("Polyphen");
 		final List<String> amino = variant.getInfo("AMINO");
+		final String identifier = variant.getIdentifiers().isEmpty()
+				? "n" + NEXT_ID.incrementAndGet()
+				: variant.getIdentifiers().get(0);
 		variants.write(variantId, chrom, position, ref, alt,
-				String.join(",", variant.getIdentifiers()),
+				identifier,
 				sift == null ? null : sift.get(a),
 				phen == null ? null : phen.get(a),
 				amino == null ? null : amino.get(a)
