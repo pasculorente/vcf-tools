@@ -6,29 +6,21 @@ import org.uichuimi.vcf.io.VariantReader;
 import org.uichuimi.vcf.utils.common.FileUtils;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
+import org.uichuimi.vcf.variant.VcfConstants;
+import org.uichuimi.vcf.variant.VcfType;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.List;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
+import java.util.*;
 
 public class ExACAnnotator implements VariantConsumer {
-
+	private static final NumberFormat DECIMAL = new DecimalFormat("#.###");
+	private static final List<String> POPULATIONS = List.of("AFR", "AMR", "EAS", "FIN", "NFE", "OTH", "SAS");
+	private static final String SECONDARY_SEPARATOR = "|";
+	private static final String DESCRIPTION = String.format("Allele frequency from ExAC (%s)", String.join(SECONDARY_SEPARATOR, POPULATIONS));
 	private final VariantReader reader;
-	private static final List<String> IDS = List.of(
-			"EX_AFR_AF", "EX_AMR_AF", "EX_EAS_AF", "EX_FIN_AF",
-			"EX_NFE_AF", "EX_OTH_AF", "EX_SAS_AF");
-	private static final List<String> DESCRIPTIONS = List.of(
-			"Allele frequency in African population (ExAC)",
-			"Allele frequency in American population (ExAC)",
-			"Allele frequency in East Asian population (ExAC)",
-			"Allele frequency in Finnish population (ExAC)",
-			"Allele frequency in European Non-Finnish population (ExAC)",
-			"Allele frequency in other population (ExAC)",
-			"Allele frequency in South Asia population (ExAC)"
-	);
 
 	/**
 	 * @param file
@@ -38,17 +30,14 @@ public class ExACAnnotator implements VariantConsumer {
 		this.reader = new VariantReader(FileUtils.getInputStream(file));
 	}
 
-
 	@Override
 	public void start(VcfHeader header) {
 		injectHeaderLines(header);
-
 	}
 
 	private void injectHeaderLines(VcfHeader header) {
 		final Collection<InfoHeaderLine> headerLines = new ArrayList<>();
-		for (int i = 0; i < IDS.size(); i++)
-			headerLines.add(new InfoHeaderLine(IDS.get(i), "A", "Float", DESCRIPTIONS.get(i)));
+		headerLines.add(new InfoHeaderLine("EX_AF", VcfConstants.NUMBER_A, VcfType.STRING, DESCRIPTION));
 		for (InfoHeaderLine line : headerLines) header.addHeaderLine(line, true);
 	}
 
@@ -77,17 +66,33 @@ public class ExACAnnotator implements VariantConsumer {
 		// AN_SAS=5052
 		// AN_Adj=8432
 		final int total = exac.getInfo("AN_Adj");
-		for (String pop : List.of("AFR", "AMR", "EAS", "FIN", "NFE", "OTH", "SAS")) {
-			final Float[] frs = new Float[variant.getAlternatives().size()];
-			for (int variantIndex = 0; variantIndex < variant.getAlternatives().size(); variantIndex++) {
-				final int exacIndex = exac.getAlternatives().indexOf(variant.getAlternatives().get(variantIndex));
+		final double[][] freqs = new double[variant.getAlternatives().size()][POPULATIONS.size()];
+		for (int popIndex = 0; popIndex < POPULATIONS.size(); popIndex++) {
+			String pop = POPULATIONS.get(popIndex);
+			for (int a = 0; a < variant.getAlternatives().size(); a++) {
+				final int exacIndex = exac.getAlternatives().indexOf(variant.getAlternatives().get(a));
 				if (exacIndex < 0) continue; // Allele not available
 				final Integer ac = exac.getInfo().<List<Integer>>get("AC_" + pop).get(exacIndex);
 				final float freq = (float) ac / total;
-				frs[variantIndex] = freq;
+				freqs[a][popIndex] = freq;
 			}
-			variant.setInfo("EX_" + pop + "_AF", Arrays.asList(frs));
 		}
+		final List<String> ex_af = new ArrayList<>(variant.getAlternatives().size());
+		for (double[] freq : freqs) {
+			// if any of the frequencies is available, the rest goes to null
+			if (Arrays.stream(freq).anyMatch(Double::isFinite)) {
+				final StringJoiner joiner = new StringJoiner(SECONDARY_SEPARATOR);
+				for (double v : freq) {
+					if (Double.isFinite(v)) joiner.add(DECIMAL.format(v));
+					else joiner.add(VcfConstants.EMPTY_VALUE);
+				}
+				ex_af.add(joiner.toString());
+			} else {
+				ex_af.add(VcfConstants.EMPTY_VALUE);
+			}
+		}
+		if (ex_af.stream().anyMatch(s -> !s.equals(VcfConstants.EMPTY_VALUE)))
+			variant.setInfo("EX_AF", ex_af);
 	}
 
 	@Override

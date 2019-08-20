@@ -111,7 +111,7 @@ public abstract class FrequencyAnnotator implements VariantConsumer {
 
 	protected abstract String getFileName(String chrom);
 
-	class FrequencyAnnotation {
+	static class FrequencyAnnotation {
 		private final String sourceId;
 		private final String targetId;
 		private final String description;

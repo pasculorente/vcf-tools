@@ -129,7 +129,7 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		writeFrequencies(variant, variantId, a, "1000G", "KG", List.of("EAS", "SAS", "EUR", "AFR", "AMR"));
 		writeFrequencies(variant, variantId, a, "gnomAD_genomes", "GG", List.of("AMR", "AFR", "EAS", "NFE", "FIN", "OTH", "ASJ"));
 		writeFrequencies(variant, variantId, a, "gnomAD_exomes", "GE", List.of("AFR", "AMR", "ASJ", "EAS", "FIN", "NFE", "OTH", "SAS"));
-		writeFrequencies(variant, variantId, a, "ExAC", "EX", List.of("AFR", "AMR", "EAS", "FIN", "NFE", "OTH", "SAS"));
+		writeFrequencies2(variant, variantId, a, "ExAC", "EX_AF", List.of("AFR", "AMR", "EAS", "FIN", "NFE", "OTH", "SAS"));
 
 		writeConsequence(variant, variantId, a);
 		writeGene(variant, variantId, a);
@@ -202,6 +202,19 @@ public class Neo4jTablesWriter implements VariantConsumer {
 				var2freq.write(variantId, id);
 				frequencies.write(id, populationName, pop, score.get(a));
 			}
+		}
+	}
+
+	private void writeFrequencies2(Variant variant, String variantId, int a, String database, String key, List<String> populations) throws IOException {
+		final List<String> freqs = variant.getInfo(key);
+		if (freqs == null) return;
+		if (freqs.size() <= a) return;
+		final String fr = freqs.get(a);
+		final String[] values = fr.split("\\|");
+		for (int p = 0; p < populations.size(); p++) {
+			final long id = frequencyId.incrementAndGet();
+			var2freq.write(variantId, id);
+			frequencies.write(id, database, populations.get(p),  values[p]);
 		}
 	}
 
