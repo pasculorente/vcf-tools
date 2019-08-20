@@ -3,10 +3,11 @@ package org.uichuimi.vcf.utils.consumer.neo4j;
 import org.jetbrains.annotations.NotNull;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.utils.Genotype;
-import org.uichuimi.vcf.utils.consumer.VariantConsumer;
+import org.uichuimi.vcf.utils.consumer.*;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Info;
 import org.uichuimi.vcf.variant.Variant;
+import org.uichuimi.vcf.variant.VcfConstants;
 
 import java.io.File;
 import java.io.IOException;
@@ -126,10 +127,10 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		final int absoluteA = variant.getReferences().size() + a;
 		final String variantId = writeVariant(variant, coordinate, a, r);
 
-		writeFrequencies(variant, variantId, a, "1000G", "KG", List.of("EAS", "SAS", "EUR", "AFR", "AMR"));
-		writeFrequencies(variant, variantId, a, "gnomAD_genomes", "GG", List.of("AMR", "AFR", "EAS", "NFE", "FIN", "OTH", "ASJ"));
-		writeFrequencies(variant, variantId, a, "gnomAD_exomes", "GE", List.of("AFR", "AMR", "ASJ", "EAS", "FIN", "NFE", "OTH", "SAS"));
-		writeFrequencies2(variant, variantId, a, "ExAC", "EX_AF", List.of("AFR", "AMR", "EAS", "FIN", "NFE", "OTH", "SAS"));
+		writeFrequencies(variant, variantId, a, "1000G", "KG_AF", KGenomesAnnotator.POPULATIONS);
+		writeFrequencies(variant, variantId, a, "gnomAD_genomes", "GG_AF", GnomadGenomeAnnotator.POPULATIONS);
+		writeFrequencies(variant, variantId, a, "gnomAD_exomes", "GE_AF", GnomadExomeAnnotator.POPULATIONS);
+		writeFrequencies(variant, variantId, a, "ExAC", "EX_AF", ExACAnnotator.POPULATIONS);
 
 		writeConsequence(variant, variantId, a);
 		writeGene(variant, variantId, a);
@@ -193,28 +194,18 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		}
 	}
 
-	private void writeFrequencies(Variant variant, String variantId, int a, String populationName, String prefix, List<String> populations) throws IOException {
+	private void writeFrequencies(Variant variant, String variantId, int a, String database, String key, List<String> populations) throws IOException {
 		// Frequencies are Number=A, so a must be position in alternatives
-		for (String pop : populations) {
-			final List<Float> score = variant.getInfo(String.format("%s_%s_AF", prefix, pop));
-			if (score != null) {
-				final long id = frequencyId.incrementAndGet();
-				var2freq.write(variantId, id);
-				frequencies.write(id, populationName, pop, score.get(a));
-			}
-		}
-	}
-
-	private void writeFrequencies2(Variant variant, String variantId, int a, String database, String key, List<String> populations) throws IOException {
 		final List<String> freqs = variant.getInfo(key);
 		if (freqs == null) return;
 		if (freqs.size() <= a) return;
 		final String fr = freqs.get(a);
+		if (fr.equals(VcfConstants.EMPTY_VALUE)) return;
 		final String[] values = fr.split("\\|");
 		for (int p = 0; p < populations.size(); p++) {
 			final long id = frequencyId.incrementAndGet();
 			var2freq.write(variantId, id);
-			frequencies.write(id, database, populations.get(p),  values[p]);
+			frequencies.write(id, database, populations.get(p), values[p]);
 		}
 	}
 

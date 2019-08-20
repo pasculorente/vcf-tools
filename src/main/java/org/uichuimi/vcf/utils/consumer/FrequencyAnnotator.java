@@ -7,20 +7,25 @@ import org.uichuimi.vcf.io.VariantReader;
 import org.uichuimi.vcf.utils.common.FileUtils;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
+import org.uichuimi.vcf.variant.VcfConstants;
+import org.uichuimi.vcf.variant.VcfType;
 
 import java.io.File;
 import java.io.IOException;
+import java.text.DecimalFormat;
+import java.text.NumberFormat;
 import java.util.*;
 
 public abstract class FrequencyAnnotator implements VariantConsumer {
 
+	private static final NumberFormat DECIMAL = new DecimalFormat("#.####");
+	private static final String DELIMITER = "|";
+
 	private File path;
 	private VariantReader reader;
 	private String openChromosome;
-	private final Collection<FrequencyAnnotation> annotations;
 
 	FrequencyAnnotator(File file) {
-		this.annotations = getAnnotations();
 		if (!file.exists()) throw new IllegalArgumentException(file + " does not exist");
 		if (file.isFile()) {
 			try {
@@ -33,7 +38,13 @@ public abstract class FrequencyAnnotator implements VariantConsumer {
 		}
 	}
 
-	protected abstract Collection<FrequencyAnnotation> getAnnotations();
+	abstract String getPrefix();
+
+	abstract String getDatabaseName();
+
+	abstract List<String> getPopulations();
+
+	abstract List<String> getKeys();
 
 	@Override
 	public void start(VcfHeader header) {
@@ -41,8 +52,8 @@ public abstract class FrequencyAnnotator implements VariantConsumer {
 	}
 
 	private void injectHeaderLines(VcfHeader header) {
-		for (FrequencyAnnotation annotation : annotations)
-			header.addHeaderLine(new InfoHeaderLine(annotation.targetId, "A", "Float", annotation.description));
+		final String description = String.format("Allele frequency for %s (%s)", getDatabaseName(), String.join(DELIMITER, getPopulations()));
+		header.addHeaderLine(new InfoHeaderLine(getPrefix() + "_AF", VcfConstants.NUMBER_A, VcfType.STRING, description));
 	}
 
 	@Override
@@ -51,16 +62,55 @@ public abstract class FrequencyAnnotator implements VariantConsumer {
 		if (reader == null) return;
 		final Variant annotated = reader.next(grch38);
 		if (annotated == null) return;
-		// Find common alleles and store indexes
+		final double[][] fr = createFrequencies(variant, annotated);
+		if (fr == null) return;
+		writeFrequencies(variant, fr, getPrefix() + "_AF");
+	}
+
+	/**
+	 * Create a matrix with dimensions (a,p), where <em>a</em> is the number of alternatives alleles
+	 * and <em>p</em> the number of populations with all the given frequencies. Result can be null
+	 * if no data is available.
+	 *
+	 * @param variant
+	 * 		variant to be annotated
+	 * @param annotated
+	 * 		source variant with frequency values
+	 * @return a matrix with the frequencies indexed by allele and population
+	 */
+	double[][] createFrequencies(Variant variant, Variant annotated) {
 		final Map<Integer, Integer> map = getAlleleMap(variant, annotated);
-		if (map.isEmpty()) return;
-		for (FrequencyAnnotation annotation : annotations) {
-			final List<Float> af = annotated.getInfo(annotation.sourceId);
+		if (map.isEmpty()) return null;
+		final List<String> populations = getPopulations();
+		final List<String> keys = getKeys();
+		final double[][] fr = new double[variant.getAlternatives().size()][populations.size()];
+		for (double[] doubles : fr) Arrays.fill(doubles, -1);
+		for (int p = 0; p < keys.size(); p++) {
+			final List<Float> af = annotated.getInfo(keys.get(p));
 			if (af == null) continue;
-			final Float[] frs = new Float[variant.getAlternatives().size()];
-			map.forEach((v, a) -> frs[v] = af.get(a));
-			variant.setInfo(annotation.targetId, Arrays.asList(frs));
+			int finalP = p;
+			map.forEach((v, a) -> fr[v][finalP] = af.get(a));
 		}
+		return fr;
+	}
+
+	private void writeFrequencies(Variant variant, double[][] fr, String key) {
+		final List<String> ex_af = new ArrayList<>(variant.getAlternatives().size());
+		for (double[] freq : fr) {
+			// if any of the frequencies is available, the rest goes to null
+			if (Arrays.stream(freq).anyMatch(v -> v >= 0)) {
+				final StringJoiner joiner = new StringJoiner(DELIMITER);
+				for (double v : freq) {
+					if (v >= 0) joiner.add(DECIMAL.format(v));
+					else joiner.add(VcfConstants.EMPTY_VALUE);
+				}
+				ex_af.add(joiner.toString());
+			} else {
+				ex_af.add(VcfConstants.EMPTY_VALUE);
+			}
+		}
+		if (ex_af.stream().anyMatch(s -> !s.equals(VcfConstants.EMPTY_VALUE)))
+			variant.setInfo(key, ex_af);
 	}
 
 	@NotNull
@@ -110,17 +160,5 @@ public abstract class FrequencyAnnotator implements VariantConsumer {
 	}
 
 	protected abstract String getFileName(String chrom);
-
-	static class FrequencyAnnotation {
-		private final String sourceId;
-		private final String targetId;
-		private final String description;
-
-		FrequencyAnnotation(String sourceId, String targetId, String description) {
-			this.sourceId = sourceId;
-			this.targetId = targetId;
-			this.description = description;
-		}
-	}
 
 }

@@ -1,53 +1,47 @@
 package org.uichuimi.vcf.utils.consumer;
 
-import org.uichuimi.vcf.header.InfoHeaderLine;
-import org.uichuimi.vcf.header.VcfHeader;
-import org.uichuimi.vcf.io.VariantReader;
-import org.uichuimi.vcf.utils.common.FileUtils;
-import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
-import org.uichuimi.vcf.variant.VcfConstants;
-import org.uichuimi.vcf.variant.VcfType;
 
 import java.io.File;
-import java.io.IOException;
-import java.text.DecimalFormat;
-import java.text.NumberFormat;
-import java.util.*;
+import java.util.List;
 
-public class ExACAnnotator implements VariantConsumer {
-	private static final NumberFormat DECIMAL = new DecimalFormat("#.###");
-	private static final List<String> POPULATIONS = List.of("AFR", "AMR", "EAS", "FIN", "NFE", "OTH", "SAS");
-	private static final String SECONDARY_SEPARATOR = "|";
-	private static final String DESCRIPTION = String.format("Allele frequency from ExAC (%s)", String.join(SECONDARY_SEPARATOR, POPULATIONS));
-	private final VariantReader reader;
+public class ExACAnnotator extends FrequencyAnnotator {
 
-	/**
-	 * @param file
-	 * 		a single vcf file.
-	 */
-	public ExACAnnotator(File file) throws IOException {
-		this.reader = new VariantReader(FileUtils.getInputStream(file));
+	public static final List<String> POPULATIONS = List.of("AFR", "AMR", "EAS", "FIN", "NFE", "OTH", "SAS");
+	private static final String PREFIX = "EX";
+	private static final String DATABASE_NAME = "ExAC";
+
+	public ExACAnnotator(File file) {
+		super(file);
 	}
 
 	@Override
-	public void start(VcfHeader header) {
-		injectHeaderLines(header);
-	}
-
-	private void injectHeaderLines(VcfHeader header) {
-		final Collection<InfoHeaderLine> headerLines = new ArrayList<>();
-		headerLines.add(new InfoHeaderLine("EX_AF", VcfConstants.NUMBER_A, VcfType.STRING, DESCRIPTION));
-		for (InfoHeaderLine line : headerLines) header.addHeaderLine(line, true);
+	String getPrefix() {
+		return PREFIX;
 	}
 
 	@Override
-	public void accept(Variant variant, Coordinate grch38) {
-		final Variant next = reader.next(grch38);
-		if (next != null) annotate(next, variant);
+	String getDatabaseName() {
+		return DATABASE_NAME;
 	}
 
-	private void annotate(Variant exac, Variant variant) {
+	@Override
+	List<String> getPopulations() {
+		return POPULATIONS;
+	}
+
+	@Override
+	List<String> getKeys() {
+		return null;
+	}
+
+	@Override
+	protected String getFileName(String chrom) {
+		return null;
+	}
+
+	@Override
+	double[][] createFrequencies(Variant variant, Variant exac) {
 		// AC_AFR=0
 		// AC_AMR=0
 		// AC_EAS=0
@@ -73,34 +67,10 @@ public class ExACAnnotator implements VariantConsumer {
 				final int exacIndex = exac.getAlternatives().indexOf(variant.getAlternatives().get(a));
 				if (exacIndex < 0) continue; // Allele not available
 				final Integer ac = exac.getInfo().<List<Integer>>get("AC_" + pop).get(exacIndex);
-				final float freq = (float) ac / total;
+				final double freq = (double) ac / total;
 				freqs[a][popIndex] = freq;
 			}
 		}
-		final List<String> ex_af = new ArrayList<>(variant.getAlternatives().size());
-		for (double[] freq : freqs) {
-			// if any of the frequencies is available, the rest goes to null
-			if (Arrays.stream(freq).anyMatch(Double::isFinite)) {
-				final StringJoiner joiner = new StringJoiner(SECONDARY_SEPARATOR);
-				for (double v : freq) {
-					if (Double.isFinite(v)) joiner.add(DECIMAL.format(v));
-					else joiner.add(VcfConstants.EMPTY_VALUE);
-				}
-				ex_af.add(joiner.toString());
-			} else {
-				ex_af.add(VcfConstants.EMPTY_VALUE);
-			}
-		}
-		if (ex_af.stream().anyMatch(s -> !s.equals(VcfConstants.EMPTY_VALUE)))
-			variant.setInfo("EX_AF", ex_af);
-	}
-
-	@Override
-	public void close() {
-		try {
-			reader.close();
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
+		return freqs;
 	}
 }
