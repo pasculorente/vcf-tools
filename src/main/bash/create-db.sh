@@ -33,6 +33,8 @@ ${neo4j}bin/neo4j-admin import \
     --relationships ${files}variant2disease.tsv.gz
 
 if [ $target != $neo4j ]; then
+    echo "Moving data to ${target}data/databases/graph.db"
     rm -rf "${target}data/databases/graph.db"
     mv "${neo4j}data/databases/graph.db" "${target}data/databases/graph.db"
 fi
+echo "Done"
