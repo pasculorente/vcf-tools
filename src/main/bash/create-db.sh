@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 
 files="/media/pascual/Resources/uichuimi/neo4j/"
-neo4j="/home/pascual/neo4j"
+neo4j="/home/pascual/neo4j/"
+target="/media/pascual/Resources/uichuimi/neo4j-community-3.5.7/"
 
-rm -r "${neo4j}/data/databases/graph.db"
+rm -rf "${neo4j}data/databases/graph.db"
 
-${neo4j}/bin/neo4j-admin import \
+${neo4j}bin/neo4j-admin import \
     --delimiter "\t" \
     --array-delimiter "," \
     --ignore-missing-nodes true \
@@ -31,3 +32,7 @@ ${neo4j}/bin/neo4j-admin import \
     --relationships:DRUG ${files}gene2drug.tsv.gz\
     --relationships ${files}variant2disease.tsv.gz
 
+if [ $target != $neo4j ]; then
+    rm -rf "${target}data/databases/graph.db"
+    mv "${neo4j}data/databases/graph.db" "${target}data/databases/graph.db"
+fi
