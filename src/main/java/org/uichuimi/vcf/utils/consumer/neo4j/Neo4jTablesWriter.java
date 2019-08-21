@@ -203,9 +203,11 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		if (fr.equals(VcfConstants.EMPTY_VALUE)) return;
 		final String[] values = fr.split("\\|");
 		for (int p = 0; p < populations.size(); p++) {
+			final String value = values[p];
+			if (value.equals(VcfConstants.EMPTY_VALUE)) continue;
 			final long id = frequencyId.incrementAndGet();
 			var2freq.write(variantId, id);
-			frequencies.write(id, database, populations.get(p), values[p]);
+			frequencies.write(id, database, populations.get(p), value);
 		}
 	}
 
