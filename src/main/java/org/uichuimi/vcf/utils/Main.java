@@ -1,5 +1,6 @@
 package org.uichuimi.vcf.utils;
 
+import org.uichuimi.vcf.utils.annotation.VariantAnnotator;
 import picocli.CommandLine;
 
 import java.util.concurrent.Callable;

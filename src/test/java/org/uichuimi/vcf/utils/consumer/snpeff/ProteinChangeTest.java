@@ -3,6 +3,7 @@ package org.uichuimi.vcf.utils.consumer.snpeff;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.uichuimi.vcf.io.VariantReader;
+import org.uichuimi.vcf.utils.annotation.consumer.snpeff.ProteinChange;
 import org.uichuimi.vcf.variant.Variant;
 
 import java.io.File;

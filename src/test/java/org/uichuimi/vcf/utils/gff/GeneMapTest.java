@@ -3,6 +3,7 @@ package org.uichuimi.vcf.utils.gff;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
+import org.uichuimi.vcf.utils.annotation.gff.GeneMap;
 import org.uichuimi.vcf.variant.Coordinate;
 
 import java.io.File;
