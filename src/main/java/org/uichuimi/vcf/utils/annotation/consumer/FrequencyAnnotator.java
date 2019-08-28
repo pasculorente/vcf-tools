@@ -4,7 +4,8 @@ import org.jetbrains.annotations.NotNull;
 import org.uichuimi.vcf.header.InfoHeaderLine;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.io.VariantReader;
-import org.uichuimi.vcf.utils.annotation.common.FileUtils;
+import org.uichuimi.vcf.utils.annotation.AnnotationConstants;
+import org.uichuimi.vcf.utils.common.FileUtils;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
 import org.uichuimi.vcf.variant.VcfConstants;
@@ -19,7 +20,6 @@ import java.util.*;
 public abstract class FrequencyAnnotator implements VariantConsumer {
 
 	private static final NumberFormat DECIMAL = new DecimalFormat("#.####");
-	private static final String DELIMITER = "|";
 
 	private File path;
 	private VariantReader reader;
@@ -52,7 +52,7 @@ public abstract class FrequencyAnnotator implements VariantConsumer {
 	}
 
 	private void injectHeaderLines(VcfHeader header) {
-		final String description = String.format("Allele frequency for %s (%s)", getDatabaseName(), String.join(DELIMITER, getPopulations()));
+		final String description = String.format("Allele frequency for %s (%s)", getDatabaseName(), String.join(AnnotationConstants.DELIMITER, getPopulations()));
 		header.addHeaderLine(new InfoHeaderLine(getPrefix() + "_AF", VcfConstants.NUMBER_A, VcfType.STRING, description));
 	}
 
@@ -99,7 +99,7 @@ public abstract class FrequencyAnnotator implements VariantConsumer {
 		for (double[] freq : fr) {
 			// if any of the frequencies is available, the rest goes to null
 			if (Arrays.stream(freq).anyMatch(v -> v >= 0)) {
-				final StringJoiner joiner = new StringJoiner(DELIMITER);
+				final StringJoiner joiner = new StringJoiner(AnnotationConstants.DELIMITER);
 				for (double v : freq) {
 					if (v >= 0) joiner.add(DECIMAL.format(v));
 					else joiner.add(VcfConstants.EMPTY_VALUE);

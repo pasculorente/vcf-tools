@@ -1,4 +1,4 @@
-package org.uichuimi.vcf.utils.annotation.common;
+package org.uichuimi.vcf.utils.common;
 
 import org.uichuimi.vcf.variant.Coordinate;
 

@@ -9,10 +9,14 @@ import org.uichuimi.vcf.utils.annotation.gff.GeneMap;
 import org.uichuimi.vcf.utils.annotation.gff.Transcript;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
+import org.uichuimi.vcf.variant.VcfType;
 
 import java.io.File;
 import java.util.*;
 import java.util.stream.Collectors;
+
+import static org.uichuimi.vcf.utils.annotation.AnnotationConstants.*;
+import static org.uichuimi.vcf.variant.VcfConstants.NUMBER_A;
 
 /**
  * Takes VEP files as source and annotates variants using VEP data. Variants should be provided in
@@ -36,17 +40,7 @@ public class VepAnnotator implements VariantConsumer {
 			"regulatory_region_ablation", "regulatory_region_amplification", "feature_elongation",
 			"regulatory_region_variant", "feature_truncation", "intergenic_variant"
 	);
-	private static final String ENSG = "ENSG";
-	private static final String ENST = "ENST";
-	private static final String AMINO = "AMINO";
-	private static final String FT = "FT";
-	private static final String SYMBOL = "SYMBOL";
-	private static final String BIO = "BIO";
-	private static final String CONS = "CONS";
-	private static final String POLYPHEN = "Polyphen";
-	private static final String SIFT = "Sift";
-	private static final String NUMBER_ALLELE = "A";
-	private static final String TYPE_STRING = "String";
+
 
 	private final GeneMap geneMap;
 	private final VepReader vepReader;
@@ -68,15 +62,15 @@ public class VepAnnotator implements VariantConsumer {
 	}
 
 	private void addAnnotationHeaders(VcfHeader header) {
-		header.addHeaderLine(new InfoHeaderLine(SIFT, NUMBER_ALLELE, TYPE_STRING, "Sift prediction"), true);
-		header.addHeaderLine(new InfoHeaderLine(POLYPHEN, NUMBER_ALLELE, TYPE_STRING, "Polyphen prediction"), true);
-		header.addHeaderLine(new InfoHeaderLine(CONS, NUMBER_ALLELE, TYPE_STRING, "Ensembl VEP consequence"), true);
-		header.addHeaderLine(new InfoHeaderLine(BIO, NUMBER_ALLELE, TYPE_STRING, "Gene biotype"), true);
-		header.addHeaderLine(new InfoHeaderLine(SYMBOL, NUMBER_ALLELE, TYPE_STRING, "Gene symbol"), true);
-		header.addHeaderLine(new InfoHeaderLine(FT, NUMBER_ALLELE, TYPE_STRING, "Feature type"), true);
-		header.addHeaderLine(new InfoHeaderLine(ENSG, NUMBER_ALLELE, TYPE_STRING, "Ensembl gene id"), true);
-		header.addHeaderLine(new InfoHeaderLine(ENST, NUMBER_ALLELE, TYPE_STRING, "Ensembl transcript id"), true);
-		header.addHeaderLine(new InfoHeaderLine(AMINO, NUMBER_ALLELE, TYPE_STRING, "Amino acid change (ref/alt)"), true);
+		header.addHeaderLine(new InfoHeaderLine(SIFT, NUMBER_A, VcfType.STRING, "Sift prediction"), true);
+		header.addHeaderLine(new InfoHeaderLine(POLYPHEN, NUMBER_A, VcfType.STRING, "Polyphen prediction"), true);
+		header.addHeaderLine(new InfoHeaderLine(CONS, NUMBER_A, VcfType.STRING, "Ensembl VEP consequence"), true);
+		header.addHeaderLine(new InfoHeaderLine(BIO, NUMBER_A, VcfType.STRING, "Gene biotype"), true);
+		header.addHeaderLine(new InfoHeaderLine(SYMBOL, NUMBER_A, VcfType.STRING, "Gene symbol"), true);
+		header.addHeaderLine(new InfoHeaderLine(FT, NUMBER_A, VcfType.STRING, "Feature type"), true);
+		header.addHeaderLine(new InfoHeaderLine(ENSG, NUMBER_A, VcfType.STRING, "Ensembl gene id"), true);
+		header.addHeaderLine(new InfoHeaderLine(ENST, NUMBER_A, VcfType.STRING, "Ensembl transcript id"), true);
+		header.addHeaderLine(new InfoHeaderLine(AMINO, NUMBER_A, VcfType.STRING, "Amino acid change (ref/alt)"), true);
 	}
 
 	private void annotateVep(Variant variant, Variant vepAnnotation, GeneMap geneMap) {
@@ -164,7 +158,7 @@ public class VepAnnotator implements VariantConsumer {
 		final List<String> varPeps = annotation.getInfo().get("VarPep");
 		final Map<String, List<String[]>> alternativePeptides = new HashMap<>();
 		for (String element : varPeps) {
-			final String[] values = element.split("\\|");
+			final String[] values = element.split(ESCAPED_DELIMITER);
 			// some RefPep miss the index
 			if (values.length != 3) continue;
 			final int index = Integer.parseInt(values[0]);
@@ -197,7 +191,7 @@ public class VepAnnotator implements VariantConsumer {
 				variant.getInfo().set(CONS, list);
 				return;
 			}
-			final String[] value = field.split("\\|");
+			final String[] value = field.split(ESCAPED_DELIMITER);
 			final String allele = value[1];
 			alleles.computeIfAbsent(allele, a -> new ArrayList<>()).add(value);
 		}
@@ -291,7 +285,7 @@ public class VepAnnotator implements VariantConsumer {
 		// Collect all consequences by index
 		final Map<String, List<String[]>> indexes = new HashMap<>();
 		for (String field : siftInfo) {
-			final String[] value = field.split("\\|");
+			final String[] value = field.split(ESCAPED_DELIMITER);
 			if (value.length < 4) continue;
 			final String index = value[0];
 			indexes.computeIfAbsent(index, a -> new ArrayList<>()).add(value);
@@ -335,7 +329,7 @@ public class VepAnnotator implements VariantConsumer {
 	}
 
 	private String[] mostSeverePolyphen(List<String[]> values) {
-		return values.stream().max(Comparator.comparingDouble(x -> Double.valueOf(x[2]))).orElse(null);
+		return values.stream().max(Comparator.comparingDouble(x -> Double.parseDouble(x[2]))).orElse(null);
 	}
 	@Override
 	public void close() {

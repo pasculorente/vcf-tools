@@ -1,6 +1,7 @@
 package org.uichuimi.vcf.utils.annotation.consumer;
 
 import org.uichuimi.vcf.header.VcfHeader;
+import org.uichuimi.vcf.utils.annotation.AnnotationConstants;
 import org.uichuimi.vcf.utils.annotation.Genotype;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
@@ -8,6 +9,8 @@ import org.uichuimi.vcf.variant.Variant;
 import java.util.Arrays;
 import java.util.Objects;
 import java.util.stream.IntStream;
+
+import static org.uichuimi.vcf.utils.annotation.AnnotationConstants.DP;
 
 public class StatsCalculator implements VariantConsumer {
 
@@ -27,10 +30,10 @@ public class StatsCalculator implements VariantConsumer {
 
 	private void dp(Variant variant) {
 		final long dp = IntStream.range(0, header.getSamples().size())
-				.mapToLong(i -> variant.getSampleInfo(i).get("DP"))
+				.mapToLong(i -> variant.getSampleInfo(i).get(DP))
 				.filter(Objects::nonNull)
 				.sum();
-		variant.setInfo("DP", dp);
+		variant.setInfo(DP, dp);
 	}
 
 	private void ac(Variant variant) {
@@ -39,7 +42,7 @@ public class StatsCalculator implements VariantConsumer {
 		// AN, number of alleles observed, including reference
 		int[] ac = new int[variant.getAlleles().size()];
 		for (int s = 0; s < header.getSamples().size(); s++) {
-			final String gt = variant.getSampleInfo(s).get("GT");
+			final String gt = variant.getSampleInfo(s).get(AnnotationConstants.GT);
 			if (gt == null) continue;
 			final Genotype genotype = Genotype.create(gt);
 			ac[genotype.getA()]++;
@@ -47,7 +50,7 @@ public class StatsCalculator implements VariantConsumer {
 		}
 		// This do take into account all alleles, including reference
 		final int an = Arrays.stream(ac).sum();
-		variant.setInfo("AN", an);
+		variant.setInfo(AnnotationConstants.AN, an);
 		// Skip the reference allele, since AC has Number=A
 		final Integer[] acArray = new Integer[variant.getAlternatives().size()];
 		final Float[] afArray = new Float[variant.getAlternatives().size()];
@@ -55,9 +58,8 @@ public class StatsCalculator implements VariantConsumer {
 			acArray[a] = ac[a];
 			afArray[a] = (float) ac[a] / an;
 		}
-		variant.setInfo("AC", Arrays.asList(acArray));
-		variant.setInfo("AF", Arrays.asList(afArray));
-
+		variant.setInfo(AnnotationConstants.AC, Arrays.asList(acArray));
+		variant.setInfo(AnnotationConstants.AF, Arrays.asList(afArray));
 	}
 
 	@Override

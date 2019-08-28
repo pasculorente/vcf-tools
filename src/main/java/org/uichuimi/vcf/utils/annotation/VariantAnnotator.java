@@ -3,14 +3,14 @@ package org.uichuimi.vcf.utils.annotation;
 import org.uichuimi.vcf.header.SimpleHeaderLine;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.io.MultipleVariantReader;
-import org.uichuimi.vcf.utils.annotation.common.CoordinateUtils;
-import org.uichuimi.vcf.utils.annotation.common.GenomeProgress;
-import org.uichuimi.vcf.utils.annotation.common.ProgressBar;
 import org.uichuimi.vcf.utils.annotation.consumer.*;
 import org.uichuimi.vcf.utils.annotation.consumer.neo4j.Neo4jTablesWriter;
 import org.uichuimi.vcf.utils.annotation.consumer.snpeff.SnpEffExtractor;
 import org.uichuimi.vcf.utils.annotation.consumer.vep.VepAnnotator;
 import org.uichuimi.vcf.utils.annotation.gff.GeneMap;
+import org.uichuimi.vcf.utils.common.CoordinateUtils;
+import org.uichuimi.vcf.utils.common.GenomeProgress;
+import org.uichuimi.vcf.utils.common.ProgressBar;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
 
@@ -30,6 +30,7 @@ import static picocli.CommandLine.Option;
  * reference genome (GRCh38), although UCSC genome should work as well.
  */
 @Command(name = "annotate", description = "annotates vcf files using VEP, 1kg and other resources")
+public
 class VariantAnnotator implements Callable<Void> {
 
 	@Option(names = {"--input", "-i"},

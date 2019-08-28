@@ -1,4 +1,4 @@
-package org.uichuimi.vcf.utils.annotation.common;
+package org.uichuimi.vcf.utils.common;
 
 import java.io.*;
 import java.util.zip.*;

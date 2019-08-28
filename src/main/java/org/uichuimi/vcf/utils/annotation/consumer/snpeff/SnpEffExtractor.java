@@ -13,16 +13,11 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import static org.uichuimi.vcf.utils.annotation.AnnotationConstants.*;
+
 public class SnpEffExtractor implements VariantConsumer {
 
 	private static final String ANN = "ANN";
-	private static final String ENSG = "ENSG";
-	private static final String ENST = "ENST";
-	private static final String FT = "FT";
-	private static final String SYMBOL = "SYMBOL";
-	private static final String BIO = "BIO";
-	private static final String CONS = "CONS";
-	private static final String AMINO = "AMINO";
 	private GeneMap geneMap;
 
 	public SnpEffExtractor(GeneMap geneMap) {
@@ -84,7 +79,7 @@ public class SnpEffExtractor implements VariantConsumer {
 	}
 
 	private Annotation toAnnotation(String line) {
-		return new Annotation(line.split("\\|"));
+		return new Annotation(line.split(ESCAPED_DELIMITER));
 	}
 
 	@Override

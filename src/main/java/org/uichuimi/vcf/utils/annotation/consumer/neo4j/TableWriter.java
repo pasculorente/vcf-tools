@@ -1,6 +1,6 @@
 package org.uichuimi.vcf.utils.annotation.consumer.neo4j;
 
-import org.uichuimi.vcf.utils.annotation.common.FileUtils;
+import org.uichuimi.vcf.utils.common.FileUtils;
 
 import java.io.BufferedWriter;
 import java.io.File;

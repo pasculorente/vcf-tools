@@ -1,6 +1,6 @@
 package org.uichuimi.vcf.utils.annotation.gff;
 
-import org.uichuimi.vcf.utils.annotation.common.FileUtils;
+import org.uichuimi.vcf.utils.common.FileUtils;
 import org.uichuimi.vcf.variant.Coordinate;
 
 import java.io.BufferedReader;

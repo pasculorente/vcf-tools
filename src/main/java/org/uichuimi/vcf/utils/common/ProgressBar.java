@@ -1,4 +1,4 @@
-package org.uichuimi.vcf.utils.annotation.common;
+package org.uichuimi.vcf.utils.common;
 
 import java.util.Timer;
 import java.util.TimerTask;
@@ -48,12 +48,6 @@ public class ProgressBar {
 		this.message = message;
 	}
 
-	public void stop() {
-		timer.cancel();
-		print();
-		System.out.println();
-	}
-
 	private static String formatTime(long nanos) {
 		return String.format("%02d:%02d:%02d", TimeUnit.NANOSECONDS.toHours(nanos),
 				TimeUnit.NANOSECONDS.toMinutes(nanos) % TimeUnit.HOURS.toMinutes(1),
@@ -62,5 +56,21 @@ public class ProgressBar {
 
 	public long getElapsedNanos() {
 		return System.nanoTime() - start;
+	}
+
+	/**
+	 * Nicely interrupts the progress bar
+	 */
+	public void stop() {
+		timer.cancel();
+		print();
+		System.out.println();
+	}
+
+	/**
+	 * Abruptly interrupts the progress bar.
+	 */
+	public void cancel() {
+		timer.cancel();
 	}
 }

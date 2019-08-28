@@ -1,7 +1,7 @@
 package org.uichuimi.vcf.utils.annotation.consumer.vep;
 
 import org.uichuimi.vcf.io.VariantReader;
-import org.uichuimi.vcf.utils.annotation.common.FileUtils;
+import org.uichuimi.vcf.utils.common.FileUtils;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
 

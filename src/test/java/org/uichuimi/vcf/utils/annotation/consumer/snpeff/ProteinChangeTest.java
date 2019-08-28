@@ -1,9 +1,9 @@
-package org.uichuimi.vcf.utils.consumer.snpeff;
+package org.uichuimi.vcf.utils.annotation.consumer.snpeff;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.uichuimi.vcf.io.VariantReader;
-import org.uichuimi.vcf.utils.annotation.consumer.snpeff.ProteinChange;
+import org.uichuimi.vcf.utils.annotation.AnnotationConstants;
 import org.uichuimi.vcf.variant.Variant;
 
 import java.io.File;
@@ -59,6 +59,7 @@ class ProteinChangeTest {
 				Assertions.fail(change, e);
 			}
 		}
+		int x = 7;
 	}
 
 	@Test
@@ -73,7 +74,7 @@ class ProteinChangeTest {
 				final List<String> ann = variant.getInfo("ANN");
 				if (ann == null) continue;
 				for (String element : ann) {
-					final String[] values = element.split("\\|");
+					final String[] values = element.split(AnnotationConstants.ESCAPED_DELIMITER);
 					if (values.length <= 10) continue;
 					final String hgvsp = values[10];
 					if (hgvsp.isBlank()) continue;

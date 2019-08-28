@@ -2,9 +2,9 @@ package org.uichuimi.vcf.utils.annotation.consumer.neo4j;
 
 import org.jetbrains.annotations.NotNull;
 import org.uichuimi.vcf.header.VcfHeader;
+import org.uichuimi.vcf.utils.annotation.AnnotationConstants;
 import org.uichuimi.vcf.utils.annotation.Genotype;
 import org.uichuimi.vcf.utils.annotation.consumer.*;
-import org.uichuimi.vcf.utils.consumer.*;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Info;
 import org.uichuimi.vcf.variant.Variant;
@@ -50,6 +50,7 @@ public class Neo4jTablesWriter implements VariantConsumer {
 
 
 	private final AtomicLong frequencyId = new AtomicLong();
+	private final List<TableWriter> tables;
 
 	public Neo4jTablesWriter(File path) throws IOException {
 
@@ -80,6 +81,7 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		// (:Variant)-[:FREQUENCY]->(:Frequency)
 		frequencies = new TableWriter(new File(path, "Frequencies.tsv.gz"), List.of(":ID(freq)", "source", "population", "value:double"));
 		var2freq = new TableWriter(new File(path, "var2freq.tsv.gz"), List.of(":START_ID(variant)", ":END_ID(freq)"));
+		tables = List.of(this.samples, homozygous, heterozygous, wildtype, var2gene, variants, frequencies, var2freq, var2effect);
 	}
 
 	@Override
@@ -145,9 +147,9 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		final int position = coordinate.getPosition();
 
 		final String variantId = String.format("%s:%s:%s:%s", chrom, position, ref, alt);
-		final List<String> sift = variant.getInfo("Sift");
-		final List<String> phen = variant.getInfo("Polyphen");
-		final List<String> amino = variant.getInfo("AMINO");
+		final List<String> sift = variant.getInfo(AnnotationConstants.SIFT);
+		final List<String> phen = variant.getInfo(AnnotationConstants.POLYPHEN);
+		final List<String> amino = variant.getInfo(AnnotationConstants.AMINO);
 		final String identifier = variant.getIdentifiers().isEmpty()
 				? "n" + NEXT_ID.incrementAndGet()
 				: variant.getIdentifiers().get(0);
@@ -161,7 +163,7 @@ public class Neo4jTablesWriter implements VariantConsumer {
 	}
 
 	private void writeGene(Variant variant, String variantId, int a) throws IOException {
-		final List<String> genes = variant.getInfo("ENSG");
+		final List<String> genes = variant.getInfo(AnnotationConstants.ENSG);
 		if (genes == null) return;
 		final String ensg = genes.get(a);
 		if (ensg != null) var2gene.write(variantId, ensg);
@@ -169,7 +171,7 @@ public class Neo4jTablesWriter implements VariantConsumer {
 
 	private void writeConsequence(Variant variant, String variantId, int a) throws IOException {
 		// CONS is expected to be Number=A or Number=.
-		final List<String> cons = variant.getInfo("CONS");
+		final List<String> cons = variant.getInfo(AnnotationConstants.CONS);
 		if (cons == null) return;
 		final String effect = cons.get(a);
 		if (effect != null) var2effect.write(variantId, effect);
@@ -179,19 +181,19 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		for (int i = 0; i < header.getSamples().size(); i++) {
 			final String sample = header.getSamples().get(i);
 			final Info sampleInfo = variant.getSampleInfo(i);
-			final String gt = sampleInfo.get("GT");
+			final String gt = sampleInfo.get(AnnotationConstants.GT);
 			if (gt == null || gt.equals("./.") || gt.equals(".")) continue;
 
+			final Genotype genotype = Genotype.create(gt);
+			final TableWriter table;
+			if (genotype.getA() == r && genotype.getB() == r) table = wildtype;
+			else if (genotype.getA() == absoluteA && genotype.getB() == absoluteA) table = homozygous;
+			else if (genotype.getA() == absoluteA || genotype.getB() == absoluteA) table = heterozygous;
+			else continue;
 			final String alleleDepth = getAlleleDepth(r, absoluteA, sampleInfo);
 			final int readDepth = getReadDepth(sampleInfo);
+			table.write(sample, variantId, alleleDepth, readDepth);
 
-			final Genotype genotype = Genotype.create(gt);
-			if (genotype.getA() == r && genotype.getB() == r)
-				wildtype.write(sample, variantId, alleleDepth, readDepth);
-			else if (genotype.getA() == absoluteA && genotype.getB() == absoluteA)
-				homozygous.write(sample, variantId, alleleDepth, readDepth);
-			else if (genotype.getA() == absoluteA || genotype.getB() == absoluteA)
-				heterozygous.write(sample, variantId, alleleDepth, readDepth);
 		}
 	}
 
@@ -202,7 +204,7 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		if (freqs.size() <= a) return;
 		final String fr = freqs.get(a);
 		if (fr.equals(VcfConstants.EMPTY_VALUE)) return;
-		final String[] values = fr.split("\\|");
+		final String[] values = fr.split(AnnotationConstants.ESCAPED_DELIMITER);
 		for (int p = 0; p < populations.size(); p++) {
 			final String value = values[p];
 			if (value.equals(VcfConstants.EMPTY_VALUE)) continue;
@@ -214,26 +216,27 @@ public class Neo4jTablesWriter implements VariantConsumer {
 
 	@NotNull
 	private Integer getReadDepth(Info sampleInfo) {
-		final Integer dp = sampleInfo.get("DP");
+		final Integer dp = sampleInfo.get(AnnotationConstants.DP);
 		return dp == null ? 0 : dp;
 	}
 
 	private String getAlleleDepth(int r, int absoluteA, Info sampleInfo) {
 		final int refAd;
 		final int altAd;
-		final List<Integer> ad = sampleInfo.get("AD");
+		final List<Integer> ad = sampleInfo.get(AnnotationConstants.AD);
 		if (ad == null) {
 			refAd = 0;
 			altAd = 0;
 		} else {
 			refAd = ad.get(r);
-			altAd = ad.get(absoluteA);
+			// if the sample has depth count for the reference but not for this allele
+			altAd = ad.get(absoluteA) == null ? 0 : ad.get(absoluteA);
 		}
 		return String.format("%d,%d", refAd, altAd);
 	}
 
 	@Override
 	public void close() {
-
+		for (TableWriter table : tables) table.close();
 	}
 }

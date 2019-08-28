@@ -2,7 +2,7 @@ package org.uichuimi.vcf.utils.annotation.consumer;
 
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.io.VariantWriter;
-import org.uichuimi.vcf.utils.annotation.common.FileUtils;
+import org.uichuimi.vcf.utils.common.FileUtils;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
 
