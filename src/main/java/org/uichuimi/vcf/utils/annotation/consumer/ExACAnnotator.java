@@ -1,17 +1,25 @@
 package org.uichuimi.vcf.utils.annotation.consumer;
 
+import org.jetbrains.annotations.NonNls;
 import org.uichuimi.vcf.variant.Chromosome;
 import org.uichuimi.vcf.variant.Variant;
 
 import java.io.File;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class ExACAnnotator extends FrequencyAnnotator {
 
 	public static final List<String> POPULATIONS = List.of("AFR", "AMR", "EAS", "FIN", "NFE", "OTH", "SAS");
+
+	private static final List<String> PREFIXED = POPULATIONS.stream().map(pop -> "AC_" + pop).collect(Collectors.toList());
+
 	private static final String KEY = "EX_AF";
 	private static final String DATABASE_NAME = "ExAC";
+	@NonNls
+	private static final String AN_ADJ = "AN_Adj";
 
 	public ExACAnnotator(File file) {
 		super(file);
@@ -43,7 +51,7 @@ public class ExACAnnotator extends FrequencyAnnotator {
 	}
 
 	@Override
-	double[][] createFrequencies(Variant variant, Collection<Variant> exac) {
+	double[][] createFrequencies(Variant variant, Collection<Variant> annotations) {
 		// AC_AFR=0
 		// AC_AMR=0
 		// AC_EAS=0
@@ -51,7 +59,7 @@ public class ExACAnnotator extends FrequencyAnnotator {
 		// AC_NFE=0
 		// AC_OTH=0
 		// AC_SAS=2
-		//
+
 		// AN_AFR=770
 		// AN_AMR=134
 		// AN_Adj=8432
@@ -61,16 +69,20 @@ public class ExACAnnotator extends FrequencyAnnotator {
 		// AN_OTH=90
 		// AN_SAS=5052
 		// AN_Adj=8432
-		final int total = exac.getInfo("AN_Adj");
 		final double[][] freqs = new double[variant.getAlternatives().size()][POPULATIONS.size()];
-		for (int popIndex = 0; popIndex < POPULATIONS.size(); popIndex++) {
-			String pop = POPULATIONS.get(popIndex);
-			for (int a = 0; a < variant.getAlternatives().size(); a++) {
-				final int exacIndex = exac.getAlternatives().indexOf(variant.getAlternatives().get(a));
-				if (exacIndex < 0) continue; // Allele not available
-				final Integer ac = exac.getInfo().<List<Integer>>get("AC_" + pop).get(exacIndex);
-				final double freq = (double) ac / total;
-				freqs[a][popIndex] = freq;
+		for (double[] freq : freqs) Arrays.fill(freq, -1);
+		for (Variant exac : annotations) {
+			final int total = exac.getInfo(AN_ADJ);
+			List<String> alternatives = exac.getAlternatives();
+			for (int a = 0; a < alternatives.size(); a++) {
+				final String alternative = alternatives.get(a);
+				final int va = variant.getAlternatives().indexOf(alternative);
+				if (va < 0) continue;
+				for (int p = 0; p < PREFIXED.size(); p++) {
+					final Integer ac = exac.<List<Integer>>getInfo(PREFIXED.get(p)).get(a);
+					final double freq = (double) ac / total;
+					freqs[va][p] = freq;
+				}
 			}
 		}
 		return freqs;

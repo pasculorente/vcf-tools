@@ -1,6 +1,7 @@
 package org.uichuimi.vcf.utils.annotation.consumer.snpeff;
 
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.utils.annotation.consumer.VariantConsumer;
 import org.uichuimi.vcf.utils.annotation.gff.Gene;
@@ -79,7 +80,7 @@ public class SnpEffExtractor implements VariantConsumer {
 	}
 
 	private Annotation toAnnotation(String line) {
-		return new Annotation(line.split(ESCAPED_DELIMITER));
+		return new Annotation(line.split(ESCAPED_DELIMITER, -1));
 	}
 
 	@Override
@@ -133,12 +134,12 @@ public class SnpEffExtractor implements VariantConsumer {
 		Annotation(String[] fields) {
 			this.allele = fields[0];
 			this.effects = fields[1].isBlank() ? Collections.emptyList() : Arrays.asList(fields[1].split(SECONDARY_SEPARATOR));
-			this.impact = fields[2];
-			this.symbol = fields[3];
+			this.impact = mapToNull(fields[2]);
+			this.symbol = mapToNull(fields[3]);
 			this.geneId = findGeneId(fields[4]);
-			this.featureType = fields[5];
-			this.featureId = fields[6];
-			this.transcriptBiotype = fields[7];
+			this.featureType = mapToNull(fields[5]);
+			this.featureId = mapToNull(fields[6]);
+			this.transcriptBiotype = mapToNull(fields[7]);
 			// rank/total
 			this.rank = fields[8].isBlank() ? null : Integer.valueOf(fields[8].split(TERTIARY_SEPARATOR)[0]);
 			this.hgvsC = fields.length < 10 ? null : fields[9];
@@ -168,6 +169,11 @@ public class SnpEffExtractor implements VariantConsumer {
 			this.logs = fields.length < 16 || fields[15].isBlank()
 					? Collections.emptyList()
 					: Arrays.asList(fields[15].split(SECONDARY_SEPARATOR));
+		}
+
+		@Nullable
+		private String mapToNull(String field) {
+			return field.isBlank() ? null : field;
 		}
 
 	}

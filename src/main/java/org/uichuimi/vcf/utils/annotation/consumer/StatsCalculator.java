@@ -6,8 +6,6 @@ import org.uichuimi.vcf.utils.annotation.Genotype;
 import org.uichuimi.vcf.variant.Variant;
 
 import java.util.Arrays;
-import java.util.Objects;
-import java.util.stream.IntStream;
 
 import static org.uichuimi.vcf.utils.annotation.AnnotationConstants.DP;
 
@@ -28,10 +26,11 @@ public class StatsCalculator implements VariantConsumer {
 	}
 
 	private void dp(Variant variant) {
-		final long dp = IntStream.range(0, header.getSamples().size())
-				.mapToLong(i -> variant.getSampleInfo(i).get(DP))
-				.filter(Objects::nonNull)
-				.sum();
+		int dp = 0;
+		for (int i = 0; i < header.getSamples().size(); i++) {
+			if (variant.getSampleInfo(i).contains(DP))
+				dp += variant.getSampleInfo(i).<Integer>get(DP);
+		}
 		variant.setInfo(DP, dp);
 	}
 
@@ -54,8 +53,8 @@ public class StatsCalculator implements VariantConsumer {
 		final Integer[] acArray = new Integer[variant.getAlternatives().size()];
 		final Float[] afArray = new Float[variant.getAlternatives().size()];
 		for (int a = 1; a < ac.length; a++) {
-			acArray[a] = ac[a];
-			afArray[a] = (float) ac[a] / an;
+			acArray[a-1] = ac[a];
+			afArray[a-1] = (float) ac[a] / an;
 		}
 		variant.setInfo(AnnotationConstants.AC, Arrays.asList(acArray));
 		variant.setInfo(AnnotationConstants.AF, Arrays.asList(afArray));

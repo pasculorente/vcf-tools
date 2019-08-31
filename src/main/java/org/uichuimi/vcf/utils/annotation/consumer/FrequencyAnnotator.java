@@ -24,7 +24,6 @@ public abstract class FrequencyAnnotator implements VariantConsumer {
 	private File path;
 	private VariantReader reader;
 	private Chromosome openChromosome;
-	private Variant current;
 
 	FrequencyAnnotator(File file) {
 		if (!file.exists()) throw new IllegalArgumentException(file + " does not exist");

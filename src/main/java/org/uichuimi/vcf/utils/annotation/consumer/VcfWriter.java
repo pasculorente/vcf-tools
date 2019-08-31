@@ -3,6 +3,7 @@ package org.uichuimi.vcf.utils.annotation.consumer;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.io.VariantWriter;
 import org.uichuimi.vcf.utils.common.FileUtils;
+import org.uichuimi.vcf.variant.Chromosome;
 import org.uichuimi.vcf.variant.Variant;
 
 import java.io.File;
@@ -15,13 +16,14 @@ public class VcfWriter implements VariantConsumer {
 
 	/**
 	 * @param file output file
+	 * @param namespace
 	 */
-	public VcfWriter(final File file) throws IOException {
-		writer = new VariantWriter(FileUtils.getOutputStream(file));
+	public VcfWriter(final File file, Chromosome.Namespace namespace) throws IOException {
+		writer = new VariantWriter(FileUtils.getOutputStream(file), namespace);
 	}
 
-	public VcfWriter(OutputStream out) {
-		writer = new VariantWriter(out);
+	public VcfWriter(OutputStream out, Chromosome.Namespace namespace) {
+		writer = new VariantWriter(out, namespace);
 	}
 
 	@Override

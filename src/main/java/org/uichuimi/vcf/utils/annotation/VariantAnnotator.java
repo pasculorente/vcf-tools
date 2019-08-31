@@ -16,8 +16,6 @@ import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
 
 import java.io.File;
-import java.io.FileOutputStream;
-import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -140,17 +138,29 @@ class VariantAnnotator implements Callable<Void> {
 		return this;
 	}
 
+	public VariantAnnotator setNamespace(Chromosome.Namespace namespace) {
+		this.namespace = namespace;
+		return this;
+	}
+
+	public VariantAnnotator setDbsnp(File dbsnp) {
+		this.dbsnp = dbsnp;
+		return this;
+	}
+
+	public VariantAnnotator setSnpeff(Boolean snpeff) {
+		this.snpeff = snpeff;
+		return this;
+	}
+
 	@Override
 	public Void call() throws Exception {
-		final OutputStream out;
 		final PrintStream log;
 		final boolean showProgress;
 		if (output == null) {
-			out = System.out;
 			log = System.err;
 			showProgress = false;
 		} else {
-			out = new FileOutputStream(output);
 			log = System.out;
 			showProgress = true;
 		}
@@ -170,9 +180,8 @@ class VariantAnnotator implements Callable<Void> {
 				consumers.add(new KGenomesAnnotator(kGenomes));
 			}
 			if (genes != null) {
-				log.println("    - Genes are taken from " + genes);
+				log.println(" - Reading genes from " + genes);
 				geneMap = new GeneMap(genes);
-
 			}
 			if (vep != null && genes != null) {
 				log.println(" - Variant effect predictions from " + vep);
@@ -210,10 +219,10 @@ class VariantAnnotator implements Callable<Void> {
 			}
 			if (output != null) {
 				log.println(" - Export VCF into " + output);
-				consumers.add(new VcfWriter(out));
+				consumers.add(new VcfWriter(output, namespace));
 			} else {
 				log.println(" - Export VCF to standard output");
-				consumers.add(new VcfWriter(out));
+				consumers.add(new VcfWriter(System.out, namespace));
 			}
 
 			// Initialize consumers
@@ -245,12 +254,14 @@ class VariantAnnotator implements Callable<Void> {
 			throw new Exception(String.format("At line %d, variant %s", line, variant), e);
 		} finally {
 			// Close consumers
-			bar.update(0.99, "Closing consumers...");
+			if (showProgress) bar.update(0.99, "Closing consumers...");
 			consumers.forEach(VariantConsumer::close);
 
 		}
-		bar.update(1.0, "Completed");
-		bar.stop();
+		if (showProgress) {
+			bar.update(1.0, "Completed");
+			bar.stop();
+		}
 		return null;
 	}
 
