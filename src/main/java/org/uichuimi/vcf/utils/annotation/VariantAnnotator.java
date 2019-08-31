@@ -16,6 +16,7 @@ import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
 
 import java.io.File;
+import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -88,6 +89,7 @@ class VariantAnnotator implements Callable<Void> {
 	private File dbsnp;
 
 	private GeneMap geneMap;
+	private OutputStream outputStream;
 
 	public VariantAnnotator() {
 	}
@@ -153,16 +155,24 @@ class VariantAnnotator implements Callable<Void> {
 		return this;
 	}
 
+	public VariantAnnotator setOutputStream(OutputStream outputStream) {
+		this.outputStream = outputStream;
+		return this;
+	}
+
 	@Override
 	public Void call() throws Exception {
 		final PrintStream log;
 		final boolean showProgress;
-		if (output == null) {
-			log = System.err;
-			showProgress = false;
-		} else {
+		if (output != null) {
 			log = System.out;
 			showProgress = true;
+		} else if (outputStream != null && outputStream != System.out) {
+			log = System.out;
+			showProgress = true;
+		} else {
+			log = System.err;
+			showProgress = false;
 		}
 		final List<VariantConsumer> consumers = new ArrayList<>();
 		final GenomicProgressBar bar = new GenomicProgressBar(log);
@@ -220,6 +230,9 @@ class VariantAnnotator implements Callable<Void> {
 			if (output != null) {
 				log.println(" - Export VCF into " + output);
 				consumers.add(new VcfWriter(output, namespace));
+			} else if (outputStream != null) {
+				log.println(" - Export VCF to custom output stream");
+				consumers.add(new VcfWriter(outputStream, namespace));
 			} else {
 				log.println(" - Export VCF to standard output");
 				consumers.add(new VcfWriter(System.out, namespace));

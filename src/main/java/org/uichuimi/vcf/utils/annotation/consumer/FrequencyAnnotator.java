@@ -82,10 +82,10 @@ public abstract class FrequencyAnnotator implements VariantConsumer {
 		final List<String> populations = getPopulations();
 		final List<String> keys = getKeys();
 		final double[][] fr = new double[variant.getAlternatives().size()][populations.size()];
+		for (double[] doubles : fr) Arrays.fill(doubles, -1);
 		for (Variant annotation : annotations) {
 			final Map<Integer, Integer> map = getAlleleMap(variant, annotation);
 			if (map.isEmpty()) continue;
-			for (double[] doubles : fr) Arrays.fill(doubles, -1);
 			for (int p = 0; p < keys.size(); p++) {
 				final List<Float> af = annotation.getInfo(keys.get(p));
 				if (af == null) continue;
