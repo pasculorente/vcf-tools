@@ -3,7 +3,6 @@ package org.uichuimi.vcf.utils.annotation.consumer;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.utils.annotation.AnnotationConstants;
 import org.uichuimi.vcf.utils.annotation.Genotype;
-import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
 
 import java.util.Arrays;
@@ -22,7 +21,7 @@ public class StatsCalculator implements VariantConsumer {
 	}
 
 	@Override
-	public void accept(Variant variant, Coordinate grch38) {
+	public void accept(Variant variant) {
 		dp(variant);
 		ac(variant);
 //		qd(variant);

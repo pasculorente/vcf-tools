@@ -1,5 +1,6 @@
 package org.uichuimi.vcf.utils.common;
 
+import java.io.PrintStream;
 import java.util.Timer;
 import java.util.TimerTask;
 import java.util.concurrent.TimeUnit;
@@ -10,6 +11,7 @@ public class ProgressBar {
 	private static final String SOLID_BLOCK = "■";
 	private static final String EMPTY_BLOCK = "□";
 	private static final String PROGRESS_BLOCK = "▣";
+	private final PrintStream out;
 
 	private long start = -1;
 
@@ -19,6 +21,11 @@ public class ProgressBar {
 
 
 	public ProgressBar() {
+		this.out = System.out;
+	}
+
+	public ProgressBar(PrintStream out) {
+		this.out = out;
 	}
 
 	public void start() {
@@ -39,7 +46,7 @@ public class ProgressBar {
 				SOLID_BLOCK.repeat(bars) +
 				PROGRESS_BLOCK.repeat(indicator) +
 				EMPTY_BLOCK.repeat(TOTAL_BARS - bars - indicator);
-		System.out.printf("\r%s %3.0f%% %s %s", time, progress * 100, brs, message);
+		out.printf("\r%s %3.0f%% %s %s", time, progress * 100, brs, message);
 	}
 
 	public void update(double progress, String message) {
@@ -64,7 +71,7 @@ public class ProgressBar {
 	public void stop() {
 		timer.cancel();
 		print();
-		System.out.println();
+		out.println();
 	}
 
 	/**

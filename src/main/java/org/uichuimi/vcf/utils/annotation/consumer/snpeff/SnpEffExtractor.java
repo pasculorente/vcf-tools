@@ -5,18 +5,17 @@ import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.utils.annotation.consumer.VariantConsumer;
 import org.uichuimi.vcf.utils.annotation.gff.Gene;
 import org.uichuimi.vcf.utils.annotation.gff.GeneMap;
-import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 import static org.uichuimi.vcf.utils.annotation.AnnotationConstants.*;
 
 public class SnpEffExtractor implements VariantConsumer {
 
+	private static final Map<String, String> CONSEQUENCE_REPLACEMENTS = Map.of(
+		"intergenic_region", "intergenic_variant"
+	);
 	private static final String ANN = "ANN";
 	private GeneMap geneMap;
 
@@ -31,7 +30,7 @@ public class SnpEffExtractor implements VariantConsumer {
 	}
 
 	@Override
-	public void accept(Variant variant, Coordinate grch38) {
+	public void accept(Variant variant) {
 		final List<String> ann = variant.getInfo(ANN);
 		if (ann == null) return;
 		// remove value from variant
@@ -57,7 +56,8 @@ public class SnpEffExtractor implements VariantConsumer {
 			setAlleleInfo(variant, i, BIO, annotation.transcriptBiotype);
 			setAlleleInfo(variant, i, FT, annotation.featureType);
 			setAlleleInfo(variant, i, SYMBOL, annotation.symbol);
-			setAlleleInfo(variant, i, CONS, annotation.effects.get(0));
+			final String cons = annotation.effects.get(0);
+			setAlleleInfo(variant, i, CONS, CONSEQUENCE_REPLACEMENTS.getOrDefault(cons, cons));
 			if (annotation.hgvsP != null && (!variant.getInfo().contains(AMINO)
 					|| variant.<List<String>>getInfo(AMINO).size() <= i
 					|| variant.<List<String>>getInfo(AMINO).get(i) == null)) {

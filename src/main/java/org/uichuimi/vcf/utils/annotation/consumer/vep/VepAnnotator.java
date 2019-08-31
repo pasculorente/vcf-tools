@@ -7,7 +7,6 @@ import org.uichuimi.vcf.utils.annotation.consumer.VariantConsumer;
 import org.uichuimi.vcf.utils.annotation.gff.Gene;
 import org.uichuimi.vcf.utils.annotation.gff.GeneMap;
 import org.uichuimi.vcf.utils.annotation.gff.Transcript;
-import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
 import org.uichuimi.vcf.variant.VcfType;
 
@@ -56,8 +55,8 @@ public class VepAnnotator implements VariantConsumer {
 	}
 
 	@Override
-	public void accept(Variant variant, Coordinate grch38) {
-		final Collection<Variant> vepAnnotations = vepReader.getAnnotationList(grch38);
+	public void accept(Variant variant) {
+		final Collection<Variant> vepAnnotations = vepReader.getAnnotationList(variant.getCoordinate());
 		for (Variant vepAnnotation : vepAnnotations) annotateVep(variant, vepAnnotation, geneMap);
 	}
 

@@ -3,11 +3,11 @@ package org.uichuimi.vcf.utils.annotation.consumer;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.io.VariantWriter;
 import org.uichuimi.vcf.utils.common.FileUtils;
-import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.OutputStream;
 
 public class VcfWriter implements VariantConsumer {
 
@@ -20,13 +20,17 @@ public class VcfWriter implements VariantConsumer {
 		writer = new VariantWriter(FileUtils.getOutputStream(file));
 	}
 
+	public VcfWriter(OutputStream out) {
+		writer = new VariantWriter(out);
+	}
+
 	@Override
 	public void start(VcfHeader header) {
 		writer.setHeader(header);
 	}
 
 	@Override
-	public void accept(Variant variant, Coordinate grch38) {
+	public void accept(Variant variant) {
 		writer.write(variant);
 	}
 

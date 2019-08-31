@@ -2,7 +2,6 @@ package org.uichuimi.vcf.utils;
 
 import org.uichuimi.vcf.utils.annotation.VariantAnnotator;
 import org.uichuimi.vcf.utils.filter.VariantFilter;
-import org.uichuimi.vcf.utils.merge.VariantRunner;
 import picocli.CommandLine;
 
 import java.util.concurrent.Callable;
@@ -11,7 +10,7 @@ import static picocli.CommandLine.*;
 
 @Command(name = "vcf-utils",
 		description = "umpteenth package with tools to work with vcf files",
-		subcommands = {VariantAnnotator.class, VariantRunner.class, VariantFilter.class})
+		subcommands = {VariantAnnotator.class, VariantFilter.class})
 public class Main implements Callable<Void> {
 
 	public static void main(String[] args) {

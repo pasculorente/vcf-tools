@@ -5,7 +5,6 @@ import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.utils.annotation.AnnotationConstants;
 import org.uichuimi.vcf.utils.annotation.Genotype;
 import org.uichuimi.vcf.utils.annotation.consumer.*;
-import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Info;
 import org.uichuimi.vcf.variant.Variant;
 import org.uichuimi.vcf.variant.VcfConstants;
@@ -100,11 +99,11 @@ public class Neo4jTablesWriter implements VariantConsumer {
 	}
 
 	@Override
-	public void accept(Variant variant, Coordinate grch38) {
+	public void accept(Variant variant) {
 		try {
 			for (int r = 0; r < variant.getReferences().size(); r++)
 				for (int a = 0; a < variant.getAlternatives().size(); a++)
-					addSimplifiedVariant(variant, grch38, r, a);
+					addSimplifiedVariant(variant, r, a);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -117,8 +116,6 @@ public class Neo4jTablesWriter implements VariantConsumer {
 	 *
 	 * @param variant
 	 * 		the variant
-	 * @param coordinate
-	 * 		the target coordinate
 	 * @param r
 	 * 		index of reference allele in variant.references
 	 * @param a
@@ -126,9 +123,9 @@ public class Neo4jTablesWriter implements VariantConsumer {
 	 * @throws IOException
 	 * 		if any writer is closed
 	 */
-	private void addSimplifiedVariant(Variant variant, Coordinate coordinate, int r, int a) throws IOException {
+	private void addSimplifiedVariant(Variant variant, int r, int a) throws IOException {
 		final int absoluteA = variant.getReferences().size() + a;
-		final String variantId = writeVariant(variant, coordinate, a, r);
+		final String variantId = writeVariant(variant, a, r);
 
 		writeFrequencies(variant, variantId, a, "1000G", "KG_AF", KGenomesAnnotator.POPULATIONS);
 		writeFrequencies(variant, variantId, a, "gnomAD_genomes", "GG_AF", GnomadGenomeAnnotator.POPULATIONS);
@@ -140,11 +137,11 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		writeSamples(variant, variantId, r, absoluteA);
 	}
 
-	private String writeVariant(Variant variant, Coordinate coordinate, int a, int r) throws IOException {
+	private String writeVariant(Variant variant, int a, int r) throws IOException {
 		final String ref = variant.getReferences().get(r);
 		final String alt = variant.getAlternatives().get(a);
-		final String chrom = coordinate.getChrom();
-		final int position = coordinate.getPosition();
+		final String chrom = variant.getCoordinate().getChromosome().getName();
+		final long position = variant.getCoordinate().getPosition();
 
 		final String variantId = String.format("%s:%s:%s:%s", chrom, position, ref, alt);
 		final List<String> sift = variant.getInfo(AnnotationConstants.SIFT);

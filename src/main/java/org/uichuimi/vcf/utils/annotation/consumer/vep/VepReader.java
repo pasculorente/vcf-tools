@@ -2,6 +2,7 @@ package org.uichuimi.vcf.utils.annotation.consumer.vep;
 
 import org.uichuimi.vcf.io.VariantReader;
 import org.uichuimi.vcf.utils.common.FileUtils;
+import org.uichuimi.vcf.variant.Chromosome;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
 
@@ -19,7 +20,7 @@ class VepReader implements AutoCloseable {
 	private final File path;
 	private VariantReader reader;
 
-	private String chromosome = null;
+	private Chromosome chromosome = null;
 	private Variant current;
 
 	private static final String FORMAT = "homo_sapiens_incl_consequences-chr%s.vcf.gz";
@@ -29,12 +30,12 @@ class VepReader implements AutoCloseable {
 	 *
 	 * @param path path to VEP files (homo_sapiens_incl_consequences-chr*.vcf.gz)
 	 */
-	public VepReader(File path) {
+	VepReader(File path) {
 		this.path = path;
 	}
 
-	public Collection<Variant> getAnnotationList(Coordinate coordinate) {
-		openReader(coordinate.getChrom());
+	Collection<Variant> getAnnotationList(Coordinate coordinate) {
+		openReader(coordinate.getChromosome());
 		if (reader == null) return Collections.emptyList();
 		if (current == null) current = reader.next();
 		// vep can store 1 variant context in more than 1 line
@@ -42,7 +43,7 @@ class VepReader implements AutoCloseable {
 
 		while (current != null) {
 			// Compare only the position, chromosome is already the same
-			final int compare = Integer.compare(current.getCoordinate().getPosition(), coordinate.getPosition());
+			final int compare = Long.compare(current.getCoordinate().getPosition(), coordinate.getPosition());
 			if (compare > 0) return contexts; // this will preserve current variant for next call
 			if (compare < 0) current = reader.next();
 			else { // compare == 0
@@ -54,11 +55,11 @@ class VepReader implements AutoCloseable {
 
 	}
 
-	private void openReader(String chrom) {
+	private void openReader(Chromosome chrom) {
 		if (chromosome != null && chromosome.equals(chrom)) return;
 		try {
 			close();
-			final File file = new File(path, String.format(FORMAT, chrom));
+			final File file = new File(path, String.format(FORMAT, chrom.getName()));
 			if (!file.exists()) return;
 			this.reader = new VariantReader(FileUtils.getInputStream(file));
 			chromosome = chrom;

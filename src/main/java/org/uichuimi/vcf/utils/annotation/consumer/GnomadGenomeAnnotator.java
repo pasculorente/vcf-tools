@@ -1,5 +1,7 @@
 package org.uichuimi.vcf.utils.annotation.consumer;
 
+import org.uichuimi.vcf.variant.Chromosome;
+
 import java.io.File;
 import java.util.List;
 
@@ -9,7 +11,7 @@ public class GnomadGenomeAnnotator extends FrequencyAnnotator {
 	private static final List<String> KEYS = List.of("AF_afr", "AF_amr", "AF_eas", "AF_nfe", "AF_fin", "AF_oth", "AF_asj");
 	public static final List<String> POPULATIONS = List.of("AFR", "AMR", "EAS", "NFE", "FIN", "OTH", "ASJ");
 	private static final String DATABASE_NAME = "genomAD genomes";
-	private static final String PREFIX = "GG";
+	private static final String KEY = "GG_AF";
 
 	/**
 	 * @param source a single vcf file, or a directory with one vcf per chromosome.
@@ -19,8 +21,8 @@ public class GnomadGenomeAnnotator extends FrequencyAnnotator {
 	}
 
 	@Override
-	String getPrefix() {
-		return PREFIX;
+	String getKey() {
+		return KEY;
 	}
 
 	@Override
@@ -39,7 +41,7 @@ public class GnomadGenomeAnnotator extends FrequencyAnnotator {
 	}
 
 	@Override
-	protected String getFileName(String chrom) {
-		return String.format(fileName, chrom);
+	protected String getFileName(Chromosome chrom) {
+		return String.format(fileName, chrom.getName());
 	}
 }

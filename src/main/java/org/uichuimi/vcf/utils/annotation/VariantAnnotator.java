@@ -4,17 +4,21 @@ import org.uichuimi.vcf.header.SimpleHeaderLine;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.io.MultipleVariantReader;
 import org.uichuimi.vcf.utils.annotation.consumer.*;
+import org.uichuimi.vcf.utils.annotation.consumer.dbsnp.DbsnpAnnotator;
 import org.uichuimi.vcf.utils.annotation.consumer.neo4j.Neo4jTablesWriter;
 import org.uichuimi.vcf.utils.annotation.consumer.snpeff.SnpEffExtractor;
 import org.uichuimi.vcf.utils.annotation.consumer.vep.VepAnnotator;
 import org.uichuimi.vcf.utils.annotation.gff.GeneMap;
-import org.uichuimi.vcf.utils.common.CoordinateUtils;
 import org.uichuimi.vcf.utils.common.GenomeProgress;
-import org.uichuimi.vcf.utils.common.ProgressBar;
+import org.uichuimi.vcf.utils.common.GenomicProgressBar;
+import org.uichuimi.vcf.variant.Chromosome;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.OutputStream;
+import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -38,6 +42,11 @@ class VariantAnnotator implements Callable<Void> {
 			description = "Input VCF files (can be compressed with gz or zip)",
 			required = true)
 	private List<File> inputs;
+
+	@Option(names = "--namespace",
+			description = "Namespace for contigs in inputs (GRCH, UCSC, REFSEQ, GENEBANK)",
+			defaultValue = "GRCH")
+	private Chromosome.Namespace namespace;
 
 	@Option(names = {"--vep"},
 			description = "VEP directory with homo_sapiens_incl_consequences-chr*.vcf.gz files")
@@ -76,6 +85,10 @@ class VariantAnnotator implements Callable<Void> {
 
 	@Option(names = {"--snpeff"}, description = "Whether the input file or stream contains snpeff ANN. In this case extract consequence info from this INFO.")
 	private Boolean snpeff;
+
+	@Option(names = {"--dbsnp"}, description = "Dbsnp file from NCBI (ftp://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.38.gz)")
+	private File dbsnp;
+
 	private GeneMap geneMap;
 
 	public VariantAnnotator() {
@@ -129,88 +142,107 @@ class VariantAnnotator implements Callable<Void> {
 
 	@Override
 	public Void call() throws Exception {
-
+		final OutputStream out;
+		final PrintStream log;
+		final boolean showProgress;
+		if (output == null) {
+			out = System.out;
+			log = System.err;
+			showProgress = false;
+		} else {
+			out = new FileOutputStream(output);
+			log = System.out;
+			showProgress = true;
+		}
 		final List<VariantConsumer> consumers = new ArrayList<>();
-		final ProgressBar bar = new ProgressBar();
-		int c = 0;
+		final GenomicProgressBar bar = new GenomicProgressBar(log);
+		int line = 0;
 		Variant variant = null;
-		try (final MultipleVariantReader variantReader = MultipleVariantReader.getInstance(inputs)) {
+		try (final MultipleVariantReader variantReader = MultipleVariantReader.getInstance(inputs, namespace)) {
 			final List<String> samples = variantReader.getHeader().getSamples().stream().sorted().distinct().collect(Collectors.toList());
-			System.out.printf("Found %d samples (%s)%n", samples.size(), String.join(", ", samples));
+			log.printf("Found %d samples (%s)%n", samples.size(), String.join(", ", samples));
 			// Create consumers depending on the options
-			System.out.println("Adding consumers:");
+			log.println("Adding consumers:");
 			writeCommandLine(variantReader.getHeader());
 			// 1. Additive consumers
 			if (kGenomes != null) {
-				System.out.println(" - 1000G frequencies from " + kGenomes);
+				log.println(" - 1000G frequencies from " + kGenomes);
 				consumers.add(new KGenomesAnnotator(kGenomes));
 			}
 			if (genes != null) {
-				System.out.println("    - Genes are taken from " + genes);
+				log.println("    - Genes are taken from " + genes);
 				geneMap = new GeneMap(genes);
 
 			}
 			if (vep != null && genes != null) {
-				System.out.println(" - Variant effect predictions from " + vep);
+				log.println(" - Variant effect predictions from " + vep);
 				consumers.add(new VepAnnotator(vep, geneMap));
 			}
 			if (snpeff != null && snpeff) {
-				System.out.println(" - Extracting consequences from ANN tag");
+				log.println(" - Extracting consequences from ANN tag");
 				consumers.add(new SnpEffExtractor(geneMap));
 			}
 			if (gnomadGenomes != null) {
-				System.out.println(" - Adding gnomAD genomes frequencies from " + gnomadGenomes);
+				log.println(" - Adding gnomAD genomes frequencies from " + gnomadGenomes);
 				consumers.add(new GnomadGenomeAnnotator(gnomadGenomes));
 			}
 			if (gnomadExomes != null) {
-				System.out.println(" - Adding gnomAD exomes frequencies from " + gnomadExomes);
+				log.println(" - Adding gnomAD exomes frequencies from " + gnomadExomes);
 				consumers.add(new GnomadExomeAnnotator(gnomadExomes));
 			}
 			if (exac != null) {
-				System.out.println(" - Adding ExAC frequencies from " + exac);
+				log.println(" - Adding ExAC frequencies from " + exac);
 				consumers.add(new ExACAnnotator(exac));
+			}
+			if (dbsnp != null) {
+				log.printf(" - Adding rs identifier from dbSNP (%s)%n", dbsnp);
+				consumers.add(new DbsnpAnnotator(dbsnp));
 			}
 			// 2. Modifier consumers
 			if (compute) {
-				System.out.println(" - DP and AN (global) and AF and AC (per allele) will be recomputed");
+				log.println(" - DP and AN (global) and AF and AC (per allele) will be recomputed");
 				consumers.add(new StatsCalculator());
 			}
 			// 3. Output consumers
 			if (neo4j != null) {
-				System.out.println(" - Tables for neo4j into " + neo4j);
+				log.println(" - Tables for neo4j into " + neo4j);
 				consumers.add(new Neo4jTablesWriter(neo4j));
 			}
 			if (output != null) {
-				System.out.println(" - Export VCF into " + output);
-				consumers.add(new VcfWriter(output));
+				log.println(" - Export VCF into " + output);
+				consumers.add(new VcfWriter(out));
+			} else {
+				log.println(" - Export VCF to standard output");
+				consumers.add(new VcfWriter(out));
 			}
 
 			// Initialize consumers
-			bar.start();
-			bar.update(0.0, "Initializing...");
+			if (showProgress) {
+				bar.start();
+				bar.update(0.0, "Initializing...");
+			}
 			consumers.forEach(consumer -> consumer.start(variantReader.getHeader()));
 
 			// Iterate over input
 			while (variantReader.hasNext()) {
 				variant = variantReader.nextMerged();
 				final Coordinate coordinate = variant.getCoordinate();
-				final Coordinate grch38 = CoordinateUtils.toGrch38(coordinate);
 
 				// Apply every consumer
 				for (VariantConsumer consumer : consumers)
-					consumer.accept(variant, grch38);
+					consumer.accept(variant);
 
-				if (++c % 1000 == 0) {
-					final double progress = GenomeProgress.getProgress(grch38);
-					final long l = TimeUnit.NANOSECONDS.toSeconds(bar.getElapsedNanos());
-					final long sitesPerSecond = c / (1 + l); // avoid division by 0
-					final String message = String.format("%,d (%d sites/sec) %s %,d", c, sitesPerSecond, coordinate.getChrom(), coordinate.getPosition());
+				if (++line % 1000 == 0 && showProgress) {
+					final double progress = GenomeProgress.getProgress(variant.getCoordinate());
+					final long elapsed = TimeUnit.NANOSECONDS.toSeconds(bar.getElapsedNanos());
+					final long sitesPerSecond = line / (1 + elapsed); // avoid division by 0
+					final String message = String.format("%,d (%d sites/sec) %s %,d", line, sitesPerSecond, coordinate.getChrom(), coordinate.getPosition());
 					bar.update(progress, message);
 				}
 			}
 
 		} catch (Exception e) {
-			throw new Exception(String.format("At line %d, variant %s", c, variant), e);
+			throw new Exception(String.format("At line %d, variant %s", line, variant), e);
 		} finally {
 			// Close consumers
 			bar.update(0.99, "Closing consumers...");
@@ -239,6 +271,7 @@ class VariantAnnotator implements Callable<Void> {
 		if (exac != null) builder.append(" --exac ").append(exac);
 		if (compute) builder.append(" --compute-stats");
 		if (snpeff != null) builder.append(" --snpeff");
+		if (dbsnp != null) builder.append(" --dbsnp ").append(dbsnp);
 		return builder.toString();
 	}
 

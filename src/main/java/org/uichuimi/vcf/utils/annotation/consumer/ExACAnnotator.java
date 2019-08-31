@@ -1,14 +1,16 @@
 package org.uichuimi.vcf.utils.annotation.consumer;
 
+import org.uichuimi.vcf.variant.Chromosome;
 import org.uichuimi.vcf.variant.Variant;
 
 import java.io.File;
+import java.util.Collection;
 import java.util.List;
 
 public class ExACAnnotator extends FrequencyAnnotator {
 
 	public static final List<String> POPULATIONS = List.of("AFR", "AMR", "EAS", "FIN", "NFE", "OTH", "SAS");
-	private static final String PREFIX = "EX";
+	private static final String KEY = "EX_AF";
 	private static final String DATABASE_NAME = "ExAC";
 
 	public ExACAnnotator(File file) {
@@ -16,8 +18,8 @@ public class ExACAnnotator extends FrequencyAnnotator {
 	}
 
 	@Override
-	String getPrefix() {
-		return PREFIX;
+	String getKey() {
+		return KEY;
 	}
 
 	@Override
@@ -36,12 +38,12 @@ public class ExACAnnotator extends FrequencyAnnotator {
 	}
 
 	@Override
-	protected String getFileName(String chrom) {
+	protected String getFileName(Chromosome chrom) {
 		return null;
 	}
 
 	@Override
-	double[][] createFrequencies(Variant variant, Variant exac) {
+	double[][] createFrequencies(Variant variant, Collection<Variant> exac) {
 		// AC_AFR=0
 		// AC_AMR=0
 		// AC_EAS=0
