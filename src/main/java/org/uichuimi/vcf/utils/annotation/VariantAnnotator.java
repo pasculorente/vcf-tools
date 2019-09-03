@@ -178,12 +178,12 @@ class VariantAnnotator implements Callable<Void> {
 		final GenomicProgressBar bar = new GenomicProgressBar(log);
 		int line = 0;
 		Variant variant = null;
-		try (final MultipleVariantReader variantReader = MultipleVariantReader.getInstance(inputs, namespace)) {
-			final List<String> samples = variantReader.getHeader().getSamples().stream().sorted().distinct().collect(Collectors.toList());
+		try (final MultipleVariantReader reader = MultipleVariantReader.getInstance(inputs, namespace)) {
+			final List<String> samples = reader.getHeader().getSamples().stream().sorted().distinct().collect(Collectors.toList());
 			log.printf("Found %d samples (%s)%n", samples.size(), String.join(", ", samples));
 			// Create consumers depending on the options
 			log.println("Adding consumers:");
-			writeCommandLine(variantReader.getHeader());
+			writeCommandLine(reader.getHeader());
 			// 1. Additive consumers
 			if (kGenomes != null) {
 				log.println(" - 1000G frequencies from " + kGenomes);
@@ -243,11 +243,11 @@ class VariantAnnotator implements Callable<Void> {
 				bar.start();
 				bar.update(0.0, "Initializing...");
 			}
-			consumers.forEach(consumer -> consumer.start(variantReader.getHeader()));
+			consumers.forEach(consumer -> consumer.start(reader.getHeader()));
 
 			// Iterate over input
-			while (variantReader.hasNext()) {
-				variant = variantReader.nextMerged();
+			while (reader.hasNext()) {
+				variant = reader.nextMerged();
 				final Coordinate coordinate = variant.getCoordinate();
 
 				// Apply every consumer
@@ -262,7 +262,9 @@ class VariantAnnotator implements Callable<Void> {
 					bar.update(progress, message);
 				}
 			}
-
+		} catch (InterruptedException e) {
+			log.println("User canceled");
+			Thread.currentThread().interrupt();
 		} catch (Exception e) {
 			throw new Exception(String.format("At line %d, variant %s", line, variant), e);
 		} finally {
@@ -274,6 +276,9 @@ class VariantAnnotator implements Callable<Void> {
 		if (showProgress) {
 			bar.update(1.0, "Completed");
 			bar.stop();
+			final long elapsed = TimeUnit.NANOSECONDS.toSeconds(bar.getElapsedNanos());
+			final long sitesPerSecond = line / (1 + elapsed); // avoid division by 0
+			log.printf("%,d sites processed (%,d sites per second)%n", line, sitesPerSecond);
 		}
 		return null;
 	}
