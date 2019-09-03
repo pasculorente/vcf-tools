@@ -23,7 +23,7 @@ public class Gene extends Feature {
 		return transcripts;
 	}
 
-	public Transcript getTranscript(int position) {
+	public Transcript getTranscript(long position) {
 		return binarySearch(transcripts, position);
 	}
 

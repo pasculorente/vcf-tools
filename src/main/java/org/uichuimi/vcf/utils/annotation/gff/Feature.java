@@ -46,11 +46,11 @@ class Feature implements Comparable<Feature> {
 		return Integer.compare(end, other.end);
 	}
 
-	static <T extends Feature> T binarySearch(List<T> list, int position) {
+	static <T extends Feature> T binarySearch(List<T> list, long position) {
 		return binarySearch(list, 0, list.size() - 1, position);
 	}
 
-	private static <T extends Feature> T binarySearch(List<T> list, int start, int end, int position) {
+	private static <T extends Feature> T binarySearch(List<T> list, int start, int end, long position) {
 		if (end >= start) {
 			int mid = start + (end - start) / 2;
 			final T feature = list.get(mid);
@@ -62,7 +62,7 @@ class Feature implements Comparable<Feature> {
 		return null;
 	}
 
-	int compareTo(int position) {
+	int compareTo(long position) {
 		if (position < start) return -1;
 		if (position > end) return 1;
 		return 0;
