@@ -9,15 +9,14 @@ import org.uichuimi.vcf.utils.annotation.gff.GeneMap;
 import org.uichuimi.vcf.variant.Variant;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 import static org.uichuimi.vcf.utils.annotation.AnnotationConstants.*;
 
 public class SnpEffExtractor implements VariantConsumer {
 
-	private static final Map<String, String> CONSEQUENCE_REPLACEMENTS = Map.of(
-		"intergenic_region", "intergenic_variant"
-	);
 	private static final String ANN = "ANN";
+	public static final String INTERGENIC_VARIANT = "intergenic_variant";
 	private GeneMap geneMap;
 
 	public SnpEffExtractor(GeneMap geneMap) {
@@ -49,7 +48,7 @@ public class SnpEffExtractor implements VariantConsumer {
 			final Annotation annotation = ann.stream()
 					.map(this::toAnnotation)
 					.filter(it -> it.allele.equals(allele))
-					.findFirst()
+					.min(Comparator.comparingInt(s -> CONS_SEVERITY.indexOf(s.effects.get(0))))
 					.orElse(null);
 			if (annotation == null) return;
 			setAlleleInfo(variant, i, ENSG, annotation.geneId);
@@ -57,8 +56,7 @@ public class SnpEffExtractor implements VariantConsumer {
 			setAlleleInfo(variant, i, BIO, annotation.transcriptBiotype);
 			setAlleleInfo(variant, i, FT, annotation.featureType);
 			setAlleleInfo(variant, i, SYMBOL, annotation.symbol);
-			final String cons = annotation.effects.get(0);
-			setAlleleInfo(variant, i, CONS, CONSEQUENCE_REPLACEMENTS.getOrDefault(cons, cons));
+			setAlleleInfo(variant, i, CONS, annotation.effects.get(0));
 			if (annotation.hgvsP != null && (!variant.getInfo().contains(AMINO)
 					|| variant.<List<String>>getInfo(AMINO).size() <= i
 					|| variant.<List<String>>getInfo(AMINO).get(i) == null)) {
@@ -103,12 +101,26 @@ public class SnpEffExtractor implements VariantConsumer {
 		if (name.isBlank()) return null;
 		if (name.startsWith("ENSG")) return name;
 		// assume symbol
+		if (name.contains("-")) {
+			// for intergenic regions, there are two genes separated by -
+			final String[] genes = name.split("-");
+			for (String gene : genes) {
+				final List<Gene> g = geneMap.getGeneBySymbol(gene);
+				if (g != null) return g.get(0).getId();
+			}
+			return null;
+		}
 		final List<Gene> genes = geneMap.getGeneBySymbol(name);
 		if (genes != null) return genes.get(0).getId();
 		return null;
 	}
 
 	private class Annotation {
+
+		private final Map<String, String> CONSEQUENCE_REPLACEMENTS = Map.of(
+				"intergenic_region", INTERGENIC_VARIANT
+		);
+
 		static final String SECONDARY_SEPARATOR = "&";
 		static final String TERTIARY_SEPARATOR = "/";
 		private final String allele;
@@ -133,7 +145,7 @@ public class SnpEffExtractor implements VariantConsumer {
 
 		Annotation(String[] fields) {
 			this.allele = fields[0];
-			this.effects = fields[1].isBlank() ? Collections.emptyList() : Arrays.asList(fields[1].split(SECONDARY_SEPARATOR));
+			this.effects = fields[1].isBlank() ? Collections.emptyList() : collectAndReplaceEffects(fields[1]);
 			this.impact = mapToNull(fields[2]);
 			this.symbol = mapToNull(fields[3]);
 			this.geneId = findGeneId(fields[4]);
@@ -169,6 +181,12 @@ public class SnpEffExtractor implements VariantConsumer {
 			this.logs = fields.length < 16 || fields[15].isBlank()
 					? Collections.emptyList()
 					: Arrays.asList(fields[15].split(SECONDARY_SEPARATOR));
+		}
+
+		private List<String> collectAndReplaceEffects(String field) {
+			return Arrays.stream(field.split(SECONDARY_SEPARATOR))
+					.map(c -> CONSEQUENCE_REPLACEMENTS.getOrDefault(c, c))
+					.collect(Collectors.toList());
 		}
 
 		@Nullable

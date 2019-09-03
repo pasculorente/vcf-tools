@@ -1073,3 +1073,7 @@
 ##new_reference_genome=/hps/nobackup2/production/ensembl/anja/gnomad//fasta/Homo_sapiens.GRCh38.dna.primary_assembly.fa
 ##liftOverTime=March22,2019
 #CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	2406687	rs3795269	C	A	1.38891e+08	PASS	AF_afr=0.289225;AF_sas=0.364198;AF_amr=0.40779;AF_eas=0.26485;AF_nfe=0.432943;AF_fin=0.522763;AF_asj=0.326415;AF_oth=0.392292
+1	2406687	rs3795269	C	T	1.38891e+08	PASS	AF_afr=0;AF_sas=0;AF_amr=0;AF_eas=0;AF_nfe=9.40486e-06;AF_fin=0;AF_asj=0;AF_oth=0
+3	193637313	rs10451941	T	A	1.35466e+08	AC0	AF_afr=0;AF_sas=0;AF_amr=0;AF_eas=0;AF_nfe=0;AF_fin=0;AF_asj=0;AF_oth=0
+3	193637313	rs10451941	T	C	1.35466e+08	PASS	AF_afr=0.416285;AF_sas=0.375838;AF_amr=0.399322;AF_eas=0.332367;AF_nfe=0.436664;AF_fin=0.546385;AF_asj=0.422369;AF_oth=0.423558
