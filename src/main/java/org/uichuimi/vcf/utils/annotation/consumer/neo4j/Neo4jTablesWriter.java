@@ -124,6 +124,7 @@ public class Neo4jTablesWriter implements VariantConsumer {
 	 * 		if any writer is closed
 	 */
 	private void addSimplifiedVariant(Variant variant, int r, int a) throws IOException {
+		if (!filter(variant, r, a)) return;
 		final int absoluteA = variant.getReferences().size() + a;
 		final String variantId = writeVariant(variant, a, r);
 
@@ -135,6 +136,27 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		writeConsequence(variant, variantId, a);
 		writeGene(variant, variantId, a);
 		writeSamples(variant, variantId, r, absoluteA);
+	}
+
+	private boolean filter(Variant variant, int r, int a) {
+		// variant passes if there is at least
+		//      one homozygous sample with dp >= 5
+		// or   one heterozygous sample with dp >= 10
+		for (Info info : variant.getSampleInfo()) {
+			final String gt = info.get("GT");
+			if (gt == null) continue;
+			final Genotype genotype = Genotype.create(gt);
+			final Integer dp = info.get("DP");
+			final int alleleIndex = 1 + a;
+			if (genotype.getA().equals(genotype.getB()) && genotype.getA() == alleleIndex) {
+				// homozygous only for this allele (1 + a)
+				if (dp >= 10) return true;
+			} else if (genotype.getA() == alleleIndex || genotype.getB() == alleleIndex) {
+				// heterozygous
+				if (dp >= 5) return true;
+			}
+		}
+		return false;
 	}
 
 	private String writeVariant(Variant variant, int a, int r) throws IOException {
@@ -184,8 +206,10 @@ public class Neo4jTablesWriter implements VariantConsumer {
 			final Genotype genotype = Genotype.create(gt);
 			final TableWriter table;
 			if (genotype.getA() == r && genotype.getB() == r) table = wildtype;
-			else if (genotype.getA() == absoluteA && genotype.getB() == absoluteA) table = homozygous;
-			else if (genotype.getA() == absoluteA || genotype.getB() == absoluteA) table = heterozygous;
+			else if (genotype.getA() == absoluteA && genotype.getB() == absoluteA)
+				table = homozygous;
+			else if (genotype.getA() == absoluteA || genotype.getB() == absoluteA)
+				table = heterozygous;
 			else continue;
 			final String alleleDepth = getAlleleDepth(r, absoluteA, sampleInfo);
 			final int readDepth = getReadDepth(sampleInfo);
