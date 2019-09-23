@@ -139,15 +139,16 @@ public class Neo4jTablesWriter implements VariantConsumer {
 	}
 
 	private boolean filter(Variant variant, int r, int a) {
+		if (variant.getAlternatives().get(a).equals("*")) return false;
 		// variant passes if there is at least
 		//      one homozygous sample with dp >= 5
 		// or   one heterozygous sample with dp >= 10
+		final int alleleIndex = 1 + a;
 		for (Info info : variant.getSampleInfo()) {
 			final String gt = info.get("GT");
 			if (gt == null) continue;
 			final Genotype genotype = Genotype.create(gt);
 			final Integer dp = info.get("DP");
-			final int alleleIndex = 1 + a;
 			if (genotype.getA().equals(genotype.getB()) && genotype.getA() == alleleIndex) {
 				// homozygous only for this allele (1 + a)
 				if (dp >= 10) return true;
