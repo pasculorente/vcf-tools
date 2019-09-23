@@ -20,6 +20,7 @@ import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -162,6 +163,7 @@ class VariantAnnotator implements Callable<Void> {
 
 	@Override
 	public Void call() throws Exception {
+		Locale.setDefault(Locale.ENGLISH);
 		final PrintStream log;
 		final boolean showProgress;
 		if (output != null) {
