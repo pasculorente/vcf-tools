@@ -1,5 +1,6 @@
 package org.uichuimi.vcf.utils.filter;
 
+import org.uichuimi.vcf.header.DataFormatLine;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.io.MultipleVariantReader;
 import org.uichuimi.vcf.io.VariantWriter;
@@ -15,6 +16,8 @@ import java.io.PrintStream;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.function.BiFunction;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
@@ -103,19 +106,20 @@ public class VariantFilter implements Callable<Void> {
 	}
 
 	@ArgGroup(validate = false,
-			exclusive = false,
+			multiplicity = "0..*",
 			heading = "@|bold Variant filtering and selecting options:|@%n")
-	private FilteringOptions fo = new FilteringOptions();
+	private List<FilterOption> fo;
 
-	private static class FilteringOptions {
+	private static class FilterOption {
 		@Option(names = {"-f", "--filter"},
-				arity = "0..*",
 				description = "Adds a INFO field filter in the form: %n" +
 						"\t[<sample>.]<key><operator><value>%n" +
-						"@|bold sample|@ is optional and must be followed by a dot, the filter will" +
-						"be applied to a FORMAT tag only for that sample, you can also leave it " +
-						"blank (just type the dot) and it will be applied to all samples.%n" +
-						"@|bold key|@ must be one of INFO ids%n" +
+						"@|bold sample|@ is optional and must be followed by a dot, the filter " +
+						"will be applied to a FORMAT tag only for that sample, you can also leave" +
+						" it blank (just type the dot) and it will be applied to all samples or " +
+						"use an asterisk to pass if any of the samples passes.%n" +
+						"@|bold key|@ must be one of INFO ids. Special keys are CHROM, POS," +
+						" FILTER and QUAL%n" +
 						"@|bold operator|@, a math (<, <=, >, >=, =) or string (=, !=, ?) " +
 						"operator.%n" +
 						"@|bold value|@ is the comparing value for the specified key, usually a" +
@@ -132,7 +136,7 @@ public class VariantFilter implements Callable<Void> {
 						" 0.01)%n" +
 						"\t-f .DP>5 (filters variants where ALL samples have DP greater than 5)%n" +
 						"\t-f NA001.GQ>=10 (sample NA001 must have GQ greater or equal to 10)")
-		private List<String> patterns;
+		private String pattern;
 	}
 
 	private final List<Filter> filters = new ArrayList<>();
@@ -159,7 +163,10 @@ public class VariantFilter implements Callable<Void> {
 		final List<InputStream> in = new ArrayList<>();
 		if (io.inputs != null) {
 			log.println(String.format("Detected %d input files: ", io.inputs.size()));
-			for (File file : io.inputs) in.add(FileUtils.getInputStream(file));
+			for (File file : io.inputs) {
+				in.add(FileUtils.getInputStream(file));
+				log.println(" - " + file);
+			}
 		} else in.add(System.in);
 
 		Variant variant = null;
@@ -213,7 +220,7 @@ public class VariantFilter implements Callable<Void> {
 		mapGenotype(header, gts, sf.heterozygous, GT.HETERO);
 		mapGenotype(header, gts, sf.wildtype, GT.WILD);
 		filters.add(new GenotypeFilter(header, gts));
-		log.printf("Filtering genotypes:%n");
+		if (!gts.isEmpty()) log.printf("Filtering genotypes:%n");
 		gts.forEach((sample, set) -> log.printf(" - %s: %s%n", sample, set));
 	}
 
@@ -227,48 +234,68 @@ public class VariantFilter implements Callable<Void> {
 		}
 	}
 
-	private InfoFilter createFilter(String pattern, VcfHeader header) {
-		int p = 0;
-		String key;
-		while (p < pattern.length() && Character.isLetterOrDigit(pattern.charAt(p))) p++;
-		key = pattern.substring(0, p);
-		if (!header.getInfoLines().containsKey(key)) return null;
-		if (p == pattern.length())
-			return new InfoFilter(key, Operator.EQ, true, true);
-		Operator op = null;
-		String value = null;
-		boolean matchAll = true;
-		int offset = 0;
-		if (pattern.charAt(p) == '*') {
-			matchAll = false;
-			offset = 1;
-		}
-		for (Operator operator : Operator.values()) {
-			final String symbol = operator.symbol;
-			if (pattern.substring(p + offset, p + offset + symbol.length()).equals(symbol)) {
-				op = operator;
-				value = pattern.substring(p + offset + symbol.length());
-				break;
-			}
-		}
-		if (op == null) {
-			log.printf("Unrecognized operator in filter %s%n", pattern);
+	private static final Pattern PATTERN = Pattern.compile("" +
+			"(?:(?<sample>\\w*|\\*)\\.)?" +
+			"(?<key>\\w+)" +
+			"(?:(?<any>\\*)?(?<operator>>=|<=|>|<|\\?|=|!=)" +
+			"(?<value>.+))?");
+
+	private Filter createFilter(String pattern, VcfHeader header) {
+		final Matcher matcher = PATTERN.matcher(pattern);
+		if (!matcher.matches()) {
+			log.printf("Invalid filter format: %s%n", pattern);
 			System.exit(1);
 		}
-		if (value.isBlank()) {
-			log.printf("No value specified in filter %s%n", pattern);
-			System.exit(1);
+		final String sample = matcher.group("sample");
+		final String key = matcher.group("key");
+		final String any = matcher.group("any");
+		final String operator = matcher.group("operator");
+		final String value = matcher.group("value");
+		final boolean matchAll = any == null;
+		final Operator op = Operator.getInstance(operator);
+
+		final DataFormatLine headerLine;
+		if (sample == null) {
+			// INFO
+			if (value == null) return new InfoFilter(key, Operator.EQ, true, matchAll);
+			if (key.equals("CHROM"))
+				return new ChromosomeFilter(value, op);
+			if (key.equals("POS"))
+				return new PositionFilter(Long.parseLong(value), op);
+			if (key.equals("QUAL"))
+				return new QualityFilter(Double.parseDouble(value), op);
+			if (key.equals("FILTER"))
+				return new FilterFilter(value, op, matchAll);
+			if (!header.hasComplexHeader("INFO", key))
+				log.printf("WARNING: INFO %s not found (interpreting as String)%n", key);
+			headerLine = header.getInfoHeader(key);
+			Object val = headerLine.getProperty(value).getValue();
+			if (val instanceof List) val = ((List) val).iterator().next();
+			return new InfoFilter(key, op, val, matchAll);
+		} else {
+			// FORMAT
+			if (value == null)
+				return new SampleFilter(header, sample, key, Operator.EQ, true, matchAll);
+			if (!header.hasComplexHeader("FORMAT", key))
+				log.printf("WARNING: FORMAT %s not found (interpreting as String)%n", key);
+			headerLine = header.getFormatHeader(key);
+			Object val = headerLine.getProperty(value).getValue();
+			if (val instanceof List) val = ((List) val).iterator().next();
+			return new SampleFilter(header, sample, key, op, val, matchAll);
 		}
-		Object val = header.getInfoHeader(key).getProperty(value).getValue();
-		if (val instanceof List) val = ((List) val).iterator().next();
-		return new InfoFilter(key, op, val, matchAll);
 	}
 
 	private void createVariantFilters(VcfHeader header) {
-		if (fo.patterns == null) return;
-		for (String pattern : fo.patterns) {
-			final InfoFilter filter = createFilter(pattern, header);
-			if (filter != null) filters.add(filter);
+		if (fo == null) return;
+		final List<Filter> filterList = new ArrayList<>();
+		for (FilterOption option : fo) {
+			final Filter filter = createFilter(option.pattern, header);
+			filterList.add(filter);
+		}
+		if (!filterList.isEmpty()) {
+			log.println("Filters:");
+			for (Filter filter : filterList) log.println(" - " + filter);
+			filters.addAll(filterList);
 		}
 	}
 
