@@ -233,8 +233,8 @@ public class VariantFilter implements Callable<Void> {
 		while (p < pattern.length() && Character.isLetterOrDigit(pattern.charAt(p))) p++;
 		key = pattern.substring(0, p);
 		if (!header.getInfoLines().containsKey(key)) return null;
-		if (header.hasComplexHeader("INFO", key))
-			return new InfoFilter(pattern, Operator.EQ, true, true);
+		if (p == pattern.length())
+			return new InfoFilter(key, Operator.EQ, true, true);
 		Operator op = null;
 		String value = null;
 		boolean matchAll = true;
