@@ -36,8 +36,9 @@ rm -rf "${neo4j}data/databases/graph.db"
     --relationships:PROJECT "${files}sample2project.tsv.gz" \
     --relationships:FREQUENCY "${files}var2freq.tsv.gz" \
     --relationships:EFFECT "${files}var2effect.tsv.gz" \
-    --relationships:DRUG "${files}gene2drug.tsv.gz"\
-    --relationships "${files}variant2disease.tsv.gz"
+    --relationships:DRUG "${files}gene2drug.tsv.gz" \
+    --relationships "${files}variant2disease.tsv.gz" \
+    --relationships:CHROMOSOME "${files}var2chrom.tsv.gz"
 
 if [ "$target" != "$neo4j" ]; then
     echo "Moving data to ${target}data/databases/graph.db"
