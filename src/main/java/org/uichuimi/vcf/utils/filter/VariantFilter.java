@@ -50,6 +50,7 @@ public class VariantFilter implements Callable<Void> {
 	private static class IOOptions {
 
 		@Option(names = {"-i", "--input"},
+				paramLabel = "input",
 				description = "Input VCF file (can be compressed with gz or zip). If no input is " +
 						"specified, input will be read from standard input (stdin).",
 				split = ",")
@@ -70,74 +71,74 @@ public class VariantFilter implements Callable<Void> {
 
 	private static class SampleFiltering {
 		@Option(names = {"--include-samples"},
+				paramLabel = "sample",
 				description = "List of samples to be included in the output. " +
 						"Incompatible with --exclude-samples",
-				arity = "0..*",
 				split = ",")
 		private List<String> includeSamples;
 
 		@Option(names = {"--exclude-samples"},
+				paramLabel = "sample",
 				description = "List of samples to be excluded in the output. " +
 						"Incompatible with --include-samples",
-				arity = "0..*",
 				split = ",")
 		private List<String> excludeSamples;
 
 		@Option(names = {"--homozygous"},
-				description = "Filters the list of variants to include only those where these samples" +
-						" are homozygous for the alternative allele.",
-				arity = "0..*",
+				paramLabel = "sample",
+				description = "Filters the list of variants to include only those where these " +
+						"samples are homozygous for the alternative allele (e.g. 1/1).",
 				split = ",")
 		private List<String> homozygous;
 
 		@Option(names = {"--heterozygous"},
-				description = "Filters the list of variants to include only those where these samples" +
-						" are heterozygous for the alternative allele.",
-				arity = "0..*",
+				paramLabel = "sample",
+				description = "Filters the list of variants to include only those where these " +
+						"samples are heterozygous for the alternative allele (e.g. 0/1).",
 				split = ",")
 		private List<String> heterozygous;
 
 		@Option(names = {"--wildtype"},
-				description = "Filters the list of variants to include only those where these samples" +
-						" are wildtype for the alternative allele.",
-				arity = "0..*",
+				paramLabel = "sample",
+				description = "Filters the list of variants to include only those where these" +
+						" samples are homzygous for the reference allele (e.g. 0/0).",
 				split = ",")
 		private List<String> wildtype;
 	}
 
-	@ArgGroup(validate = false,
-			multiplicity = "0..*",
-			heading = "@|bold Variant filtering and selecting options:|@%n")
-	private List<FilterOption> fo;
-
-	private static class FilterOption {
-		@Option(names = {"-f", "--filter"},
-				description = "Adds a INFO field filter in the form: %n" +
-						"\t[<sample>.]<key><operator><value>%n" +
-						"@|bold sample|@ is optional and must be followed by a dot, the filter " +
-						"will be applied to a FORMAT tag only for that sample, you can also leave" +
-						" it blank (just type the dot) and it will be applied to all samples or " +
-						"use an asterisk to pass if any of the samples passes.%n" +
-						"@|bold key|@ must be one of INFO ids. Special keys are CHROM, POS," +
-						" FILTER and QUAL%n" +
-						"@|bold operator|@, a math (<, <=, >, >=, =) or string (=, !=, ?) " +
-						"operator.%n" +
-						"@|bold value|@ is the comparing value for the specified key, usually a" +
-						" number or string. operator and value are optional for boolean keys.%n" +
-						"If an INFO field is an array (A, G, R or .) all values must match the" +
-						" filter, to make the filter pass in any of the values matches, then add" +
-						" an * (asterisk) in front of the operator." +
-						"@|underline Examples:|@%n" +
-						"\t-f DP>5 (result will contain only variants which DP is greater than 5)%n" +
-						"\t-f SIFTp?tolerated (filters variants which SIFT contains 'tolerated')%n" +
-						"\t-f SYMBOL=LDLR (filter variants with SYMBOL = LDLR, if SYMBOL is an" +
-						"array, all values must be LDLR)%n" +
-						"\t-f EX_AF*<0.01 (filters variants with at least one ExAC frequency below" +
-						" 0.01)%n" +
-						"\t-f .DP>5 (filters variants where ALL samples have DP greater than 5)%n" +
-						"\t-f NA001.GQ>=10 (sample NA001 must have GQ greater or equal to 10)")
-		private String pattern;
-	}
+	@Option(names = {"-f", "--filter"},
+			paramLabel = "pattern",
+			arity = "1..*",
+			split = " ",
+			description = "Adds a INFO field filter in the form: %n" +
+					"\t[<sample>.]<key><operator><value>%n" +
+					"@|bold sample|@ is optional and must be followed by a dot, the filter " +
+					"will be applied to a FORMAT tag only for that sample. You can also leave" +
+					" it blank (just type the dot) and it will be applied to all samples or " +
+					"use an asterisk (*) to pass if any of the samples passes.%n" +
+					"@|bold key|@ must be one of INFO ids. Special keys are CHROM, POS," +
+					" FILTER and QUAL%n" +
+					"@|bold operator|@, a math (<, <=, >, >=, =) or string (=, !=, ?) " +
+					"operator.%n" +
+					"@|bold value|@ is the comparing value for the specified key, usually a" +
+					" number or string. operator and value are optional for boolean keys.%n" +
+					"If an INFO field is an array (A, G, R or .) all values must match the" +
+					" filter, to make the filter pass in any of the values matches, then add" +
+					" an * (asterisk) in front of the operator." +
+					"@|underline Examples:|@%n" +
+					"\t@|yellow -f|@ DP>5 (result will contain only variants which DP is greater" +
+					" than 5)%n" +
+					"\t@|yellow -f|@ SIFTp?tolerated (filters variants which SIFT contains " +
+					"'tolerated')%n" +
+					"\t@|yellow -f|@ SYMBOL=LDLR (filter variants with SYMBOL = LDLR, if SYMBOL " +
+					"is an array, all values must be LDLR)%n" +
+					"\t@|yellow -f|@ EX_AF*<0.01 (filters variants with at least one ExAC" +
+					" frequency below 0.01)%n" +
+					"\t@|yellow -f|@ .DP>5 (filters variants where ALL samples have DP greater" +
+					" than 5)%n" +
+					"\t@|yellow -f|@ NA001.GQ>=10 (sample NA001 must have GQ greater or equal to" +
+					" 10)")
+	private List<String> patterns;
 
 	private final List<Filter> filters = new ArrayList<>();
 
@@ -286,12 +287,8 @@ public class VariantFilter implements Callable<Void> {
 	}
 
 	private void createVariantFilters(VcfHeader header) {
-		if (fo == null) return;
 		final List<Filter> filterList = new ArrayList<>();
-		for (FilterOption option : fo) {
-			final Filter filter = createFilter(option.pattern, header);
-			filterList.add(filter);
-		}
+		for (String pattern : patterns) filterList.add(createFilter(pattern, header));
 		if (!filterList.isEmpty()) {
 			log.println("Filters:");
 			for (Filter filter : filterList) log.println(" - " + filter);
