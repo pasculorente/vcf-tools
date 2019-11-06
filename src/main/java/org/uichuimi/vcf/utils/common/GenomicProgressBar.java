@@ -14,6 +14,6 @@ public class GenomicProgressBar extends ProgressBar {
 	}
 
 	public void update(Coordinate coordinate, String message) {
-		super.update(GenomeProgress.getProgress(CoordinateUtils.toGrch38(coordinate)), message);
+		super.update(GenomeProgress.getProgress(coordinate), message);
 	}
 }

@@ -16,7 +16,7 @@ import static org.uichuimi.vcf.utils.annotation.AnnotationConstants.*;
 public class SnpEffExtractor implements VariantConsumer {
 
 	private static final String ANN = "ANN";
-	public static final String INTERGENIC_VARIANT = "intergenic_variant";
+	private static final String INTERGENIC_VARIANT = "intergenic_variant";
 	private GeneMap geneMap;
 
 	public SnpEffExtractor(GeneMap geneMap) {
