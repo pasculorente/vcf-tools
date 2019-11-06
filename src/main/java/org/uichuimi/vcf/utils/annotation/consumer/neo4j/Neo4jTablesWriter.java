@@ -5,9 +5,7 @@ import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.utils.annotation.AnnotationConstants;
 import org.uichuimi.vcf.utils.annotation.Genotype;
 import org.uichuimi.vcf.utils.annotation.consumer.*;
-import org.uichuimi.vcf.variant.Info;
-import org.uichuimi.vcf.variant.Variant;
-import org.uichuimi.vcf.variant.VcfConstants;
+import org.uichuimi.vcf.variant.*;
 
 import java.io.File;
 import java.io.IOException;
@@ -35,6 +33,8 @@ import java.util.concurrent.atomic.AtomicLong;
  */
 public class Neo4jTablesWriter implements VariantConsumer {
 
+	private final static List<Chromosome> chrs = ChromosomeFactory.getChromosomeList();
+
 	private final static AtomicLong NEXT_ID = new AtomicLong();
 	private final TableWriter samples;
 	private final TableWriter homozygous;
@@ -45,6 +45,9 @@ public class Neo4jTablesWriter implements VariantConsumer {
 	private final TableWriter frequencies;
 	private final TableWriter var2freq;
 	private final TableWriter var2effect;
+	private final TableWriter var2chrom;
+	private final TableWriter chromosomes;
+
 	private VcfHeader header;
 
 
@@ -62,15 +65,17 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		heterozygous = new TableWriter(new File(path, "hetero.tsv.gz"), columns);
 		wildtype = new TableWriter(new File(path, "wild.tsv.gz"), columns);
 
+		// (:Variant)-[:CHROMOSOME]->(:Chromosome)
+		var2chrom = new TableWriter(new File(path, "variant2chromosome.tsv.gz"), List.of(":START_ID(variant)", ":END_ID(chromosome)"));
+
+		// (:Chromosome)
+		chromosomes = new TableWriter(new File(path, "Chromosomes.tsv.gz"), List.of("name:ID(chromosome)", "index:int"));
+
 		// (:Variant)
 		final List<String> cols = new ArrayList<>(List.of(":ID(variant)", "chrom", "pos:int",
 				"ref:string", "alt:string", "identifier:string", "sift:string", "polyphen:string",
 				"amino:string"));
 		variants = new TableWriter(new File(path, "Variants.tsv.gz"), cols);
-
-		// (:Variant)-[:PREDICTION]->(:Prediction{source:"sift", prediction: "benign"})
-//		predictions = new TableWriter(new File(path, "Predictions.tsv.gz"), List.of(":ID(prediction)", "source", "prediction"));
-//		var2prediction = new TableWriter(new File(path, "var2prediction.tsv.gz"), List.of(":START_ID(variant)", ":END_ID(prediction)"));
 
 		var2effect = new TableWriter(new File(path, "var2effect.tsv.gz"), List.of(":START_ID(variant)", ":END_ID(effect)"));
 
@@ -86,16 +91,35 @@ public class Neo4jTablesWriter implements VariantConsumer {
 	@Override
 	public void start(VcfHeader header) {
 		this.header = header;
-		writeSamples(header);
-	}
-
-	private void writeSamples(VcfHeader header) {
 		try {
-			for (String sample : header.getSamples()) samples.write(sample);
-			samples.close();
+			writeSamples(header);
+			writeChromosomes(header);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+
+	private void writeSamples(VcfHeader header) throws IOException {
+		for (String sample : header.getSamples())
+			samples.write(sample);
+		samples.close();
+	}
+
+	private void writeChromosomes(VcfHeader header) throws IOException {
+		// Write
+		final List<String> chromosomeList = new ArrayList<>();
+		for (Chromosome chr : chrs)
+			chromosomeList.add(chr.getName());
+		header.getComplexLines().get("contig").forEach((key, headerLine) -> {
+			// Call Chromosome factory to find the best match
+			final String name = headerLine.getValue("ID");
+			final Chromosome chromosome = Chromosome.get(name, Chromosome.Namespace.GRCH);
+			if (!chromosomeList.contains(chromosome.getName()))
+				chromosomeList.add(chromosome.getName());
+		});
+		for (int i = 0; i < chromosomeList.size(); i++)
+			chromosomes.write(chromosomeList.get(i), i);
+		chromosomes.close();
 	}
 
 	@Override
@@ -136,6 +160,8 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		writeConsequence(variant, variantId, a);
 		writeGene(variant, variantId, a);
 		writeSamples(variant, variantId, r, absoluteA);
+
+		writeChromosome(variant, variantId);
 	}
 
 	private boolean filter(Variant variant, int r, int a) {
@@ -255,6 +281,10 @@ public class Neo4jTablesWriter implements VariantConsumer {
 			altAd = ad.get(absoluteA) == null ? 0 : ad.get(absoluteA);
 		}
 		return String.format("%d,%d", refAd, altAd);
+	}
+
+	private void writeChromosome(Variant variant, String variantId) throws IOException {
+		var2chrom.write(variantId, variant.getCoordinate().getChromosome().getName());
 	}
 
 	@Override
