@@ -35,16 +35,16 @@ class GenotypeFilter extends Filter {
 		if (gts.isEmpty()) return true;
 		if (gts.equals(ALL_GT)) return true;
 		final VariantFilter.GT gt = extractGT(info);
-		return gt == null || gts.contains(gt);
+		return gts.contains(gt);
 	}
 
 	private VariantFilter.GT extractGT(Info info) {
 		final String gt = info.get("GT");
-		if (gt == null || gt.contains(".")) return null;
+		if (gt == null || gt.contains(".")) return VariantFilter.GT.UNCALLED;
 		final String[] split;
 		if (gt.contains("/")) split = gt.split("/");
 		else split = gt.split("\\|");
-		if (split.length < 2) return null;
+		if (split.length < 2) return VariantFilter.GT.UNCALLED;
 		if (split[0].equals("0")) {
 			if (split[1].equals("0")) return VariantFilter.GT.WILD;
 			 else return VariantFilter.GT.HETERO;

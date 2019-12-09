@@ -104,6 +104,13 @@ public class VariantFilter implements Callable<Void> {
 						" samples are homzygous for the reference allele (e.g. 0/0).",
 				split = ",")
 		private List<String> wildtype;
+
+		@Option(names = {"--uncalled"},
+				paramLabel = "sample",
+				description = "Specifies which samples of the specified in the heterozygous, " +
+						"homozygous and wildtype can be uncalled, i. e., without data. By " +
+						"default, this is not allowed.")
+		private List<String> uncalled;
 	}
 
 	@Option(names = {"-f", "--filter"},
@@ -175,8 +182,9 @@ public class VariantFilter implements Callable<Void> {
 		     VariantWriter writer = new VariantWriter(out)) {
 			// Create filters
 			createFilters(reader.getHeader());
-			setSamples(reader.getHeader());
-			writer.setHeader(reader.getHeader());
+			final VcfHeader writerHeader = new VcfHeader(reader.getHeader());
+			setSamples(writerHeader);
+			writer.setHeader(writerHeader);
 			if (log == System.out) bar.start();
 			final Iterator<Variant> iterator = reader.mergedIterator();
 			while (iterator.hasNext()) {
@@ -188,7 +196,7 @@ public class VariantFilter implements Callable<Void> {
 				}
 				if (log == System.out)
 					bar.update(variant.getCoordinate(), String.format("%s %,12d", variant.getCoordinate().getChrom(), variant.getCoordinate().getPosition()));
-				if (line == 100) break;
+//				if (line == 10000) break;
 			}
 		} catch (Exception e) {
 			throw new Exception(String.format("At line %d, variant %s ", line, variant), e);
@@ -220,6 +228,7 @@ public class VariantFilter implements Callable<Void> {
 		mapGenotype(header, gts, sf.homozygous, GT.HOMO);
 		mapGenotype(header, gts, sf.heterozygous, GT.HETERO);
 		mapGenotype(header, gts, sf.wildtype, GT.WILD);
+		mapGenotype(header, gts, sf.uncalled, GT.UNCALLED);
 		filters.add(new GenotypeFilter(header, gts));
 		if (!gts.isEmpty()) log.printf("Filtering genotypes:%n");
 		gts.forEach((sample, set) -> log.printf(" - %s: %s%n", sample, set));
@@ -287,6 +296,7 @@ public class VariantFilter implements Callable<Void> {
 	}
 
 	private void createVariantFilters(VcfHeader header) {
+		if (patterns == null) return;
 		final List<Filter> filterList = new ArrayList<>();
 		for (String pattern : patterns) filterList.add(createFilter(pattern, header));
 		if (!filterList.isEmpty()) {
