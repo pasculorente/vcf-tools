@@ -26,6 +26,7 @@ rm -rf "${neo4j}data/databases/graph.db"
     --nodes:DatabaseObject:Frequency "${files}Frequencies.tsv.gz" \
     --nodes:DatabaseObject:Effect "${files}Effects.tsv.gz" \
     --nodes:DatabaseObject:Drug "${files}Drugs.tsv.gz" \
+    --nodes:DatabaseObject:Chromosome "${files}Chromosomes.tsv.gz" \
     --relationships:INTERACTS_WITH "${files}interactions.tsv.gz" \
     --relationships:HOMOZYGOUS "${files}homo.tsv.gz" \
     --relationships:HETEROZYGOUS "${files}hetero.tsv.gz" \
@@ -38,7 +39,7 @@ rm -rf "${neo4j}data/databases/graph.db"
     --relationships:EFFECT "${files}var2effect.tsv.gz" \
     --relationships:DRUG "${files}gene2drug.tsv.gz" \
     --relationships "${files}variant2disease.tsv.gz" \
-    --relationships:CHROMOSOME "${files}var2chrom.tsv.gz"
+    --relationships:CHROMOSOME "${files}variant2chromosome.tsv.gz"
 
 if [ "$target" != "$neo4j" ]; then
     echo "Moving data to ${target}data/databases/graph.db"

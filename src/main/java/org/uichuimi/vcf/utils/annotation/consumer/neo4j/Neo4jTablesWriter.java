@@ -72,9 +72,9 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		chromosomes = new TableWriter(new File(path, "Chromosomes.tsv.gz"), List.of("name:ID(chromosome)", "index:int"));
 
 		// (:Variant)
-		final List<String> cols = new ArrayList<>(List.of(":ID(variant)", "chrom", "pos:int",
-				"ref:string", "alt:string", "identifier:string", "sift:string", "polyphen:string",
-				"amino:string"));
+		final List<String> cols = new ArrayList<>(List.of(":ID(variant)", "chrom:string",
+				"chromIndex:int", "pos:int", "ref:string", "alt:string", "identifier:string",
+				"sift:string", "polyphen:string", "amino:string"));
 		variants = new TableWriter(new File(path, "Variants.tsv.gz"), cols);
 
 		var2effect = new TableWriter(new File(path, "var2effect.tsv.gz"), List.of(":START_ID(variant)", ":END_ID(effect)"));
@@ -199,7 +199,8 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		final String identifier = variant.getIdentifiers().isEmpty()
 				? "n" + NEXT_ID.incrementAndGet()
 				: variant.getIdentifiers().get(0);
-		variants.write(variantId, chrom, position, ref, alt,
+		final Integer chromIndex = chrs.indexOf(variant.getCoordinate().getChromosome());
+		variants.write(variantId, chrom, chromIndex, position, ref, alt,
 				identifier,
 				sift == null ? null : sift.get(a),
 				phen == null ? null : phen.get(a),
