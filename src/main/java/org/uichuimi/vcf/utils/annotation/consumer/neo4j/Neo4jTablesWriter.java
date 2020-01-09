@@ -50,9 +50,15 @@ public class Neo4jTablesWriter implements VariantConsumer {
 
 	private VcfHeader header;
 
-
 	private final AtomicLong frequencyId = new AtomicLong();
 	private final List<TableWriter> tables;
+
+	private static final List<String> DATABASES = List.of("1000G", "gnomAD_genomes", "gnomAD_exomes", "ExAC");
+	private static final List<String> KEYS = List.of("KG_AF", "GG_AF", "GE_AF", "EX_AF");
+	private static final List<List<String>> POPULATIONS = List.of(KGenomesAnnotator.POPULATIONS,
+			GnomadGenomeAnnotator.POPULATIONS,
+			GnomadExomeAnnotator.POPULATIONS,
+			ExACAnnotator.POPULATIONS);
 
 	public Neo4jTablesWriter(File path) throws IOException {
 
@@ -74,7 +80,7 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		// (:Variant)
 		final List<String> cols = new ArrayList<>(List.of(":ID(variant)", "chrom:string",
 				"chromIndex:int", "pos:int", "ref:string", "alt:string", "identifier:string",
-				"sift:string", "polyphen:string", "amino:string"));
+				"sift:string", "polyphen:string", "amino:string", "gmaf:double"));
 		variants = new TableWriter(new File(path, "Variants.tsv.gz"), cols);
 
 		var2effect = new TableWriter(new File(path, "var2effect.tsv.gz"), List.of(":START_ID(variant)", ":END_ID(effect)"));
@@ -150,12 +156,22 @@ public class Neo4jTablesWriter implements VariantConsumer {
 	private void addSimplifiedVariant(Variant variant, int r, int a) throws IOException {
 		if (!filter(variant, r, a)) return;
 		final int absoluteA = variant.getReferences().size() + a;
-		final String variantId = writeVariant(variant, a, r);
+		final String ref = variant.getReferences().get(r);
+		final String alt = variant.getAlternatives().get(a);
+		final String chrom = variant.getCoordinate().getChromosome().getName();
+		final long position = variant.getCoordinate().getPosition();
 
-		writeFrequencies(variant, variantId, a, "1000G", "KG_AF", KGenomesAnnotator.POPULATIONS);
-		writeFrequencies(variant, variantId, a, "gnomAD_genomes", "GG_AF", GnomadGenomeAnnotator.POPULATIONS);
-		writeFrequencies(variant, variantId, a, "gnomAD_exomes", "GE_AF", GnomadExomeAnnotator.POPULATIONS);
-		writeFrequencies(variant, variantId, a, "ExAC", "EX_AF", ExACAnnotator.POPULATIONS);
+		final String variantId = String.format("%s:%s:%s:%s", chrom, position, ref, alt);
+
+		Double gmaf = null;
+		for (int i = 0; i < DATABASES.size(); i++) {
+			final Double f = writeFrequencies(variant, variantId, a, DATABASES.get(i), KEYS.get(i), POPULATIONS.get(i));
+			if (f != null) {
+				if (gmaf == null) gmaf = f;
+				else gmaf = Double.max(gmaf, f);
+			}
+		}
+		writeVariant(variantId, variant, a, r, gmaf);
 
 		writeConsequence(variant, variantId, a);
 		writeGene(variant, variantId, a);
@@ -186,13 +202,12 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		return false;
 	}
 
-	private String writeVariant(Variant variant, int a, int r) throws IOException {
+	private String writeVariant(String variantId, Variant variant, int a, int r, Double gmaf) throws IOException {
 		final String ref = variant.getReferences().get(r);
 		final String alt = variant.getAlternatives().get(a);
 		final String chrom = variant.getCoordinate().getChromosome().getName();
 		final long position = variant.getCoordinate().getPosition();
 
-		final String variantId = String.format("%s:%s:%s:%s", chrom, position, ref, alt);
 		final List<String> sift = variant.getInfo(AnnotationConstants.SIFT);
 		final List<String> phen = variant.getInfo(AnnotationConstants.POLYPHEN);
 		final List<String> amino = variant.getInfo(AnnotationConstants.AMINO);
@@ -204,7 +219,8 @@ public class Neo4jTablesWriter implements VariantConsumer {
 				identifier,
 				sift == null ? null : sift.get(a),
 				phen == null ? null : phen.get(a),
-				amino == null ? null : amino.get(a)
+				amino == null ? null : amino.get(a),
+				gmaf
 		);
 		return variantId;
 	}
@@ -246,21 +262,24 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		}
 	}
 
-	private void writeFrequencies(Variant variant, String variantId, int a, String database, String key, List<String> populations) throws IOException {
+	private Double writeFrequencies(Variant variant, String variantId, int a, String database, String key, List<String> populations) throws IOException {
 		// Frequencies are Number=A, so a must be position in alternatives
 		final List<String> freqs = variant.getInfo(key);
-		if (freqs == null) return;
-		if (freqs.size() <= a) return;
+		if (freqs == null) return null;
+		if (freqs.size() <= a) return null;
 		final String fr = freqs.get(a);
-		if (fr.equals(VcfConstants.EMPTY_VALUE)) return;
+		if (fr.equals(VcfConstants.EMPTY_VALUE)) return null;
 		final String[] values = fr.split(AnnotationConstants.ESCAPED_DELIMITER);
+		Double max = null;
 		for (int p = 0; p < populations.size(); p++) {
 			final String value = values[p];
 			if (value.equals(VcfConstants.EMPTY_VALUE)) continue;
 			final long id = frequencyId.incrementAndGet();
 			var2freq.write(variantId, id);
 			frequencies.write(id, database, populations.get(p), value);
+			max = Double.max(max == null ? 0 : max, Double.parseDouble(value));
 		}
+		return max;
 	}
 
 	@NotNull
