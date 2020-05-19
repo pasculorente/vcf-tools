@@ -1,5 +1,6 @@
 package org.uichuimi.vcf.utils.annotation.consumer;
 
+import org.uichuimi.vcf.header.SimpleHeaderLine;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.io.VariantWriter;
 import org.uichuimi.vcf.utils.common.FileUtils;
@@ -29,6 +30,7 @@ public class VcfWriter implements VariantConsumer {
 	@Override
 	public void start(VcfHeader header) {
 		writer.setHeader(header);
+		header.addHeaderLine(new SimpleHeaderLine("vcf-utils", "1.1"));
 	}
 
 	@Override

@@ -31,8 +31,8 @@ class GenotypeFilter extends Filter {
 	}
 
 	private boolean compare(Set<VariantFilter.GT> gts, Info info) {
-		if (info == null) return true;
 		if (gts.isEmpty()) return true;
+		if (info == null) return gts.contains(VariantFilter.GT.UNCALLED);
 		if (gts.equals(ALL_GT)) return true;
 		final VariantFilter.GT gt = extractGT(info);
 		return gts.contains(gt);

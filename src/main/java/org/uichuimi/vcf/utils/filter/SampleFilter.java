@@ -7,6 +7,10 @@ import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+/**
+ * Matches a filter against all samples.
+ * If mandatory, all samples must meet the condition.
+ */
 public class SampleFilter extends Filter {
 
 	private final List<Integer> sampleIndices;
@@ -16,13 +20,15 @@ public class SampleFilter extends Filter {
 	private final boolean matchAll;
 	private final boolean matchAllSamples;
 	private final String sample;
+	private final boolean mandatory;
 
-	public SampleFilter(VcfHeader header, String sample, String key, VariantFilter.Operator operator, Object value, boolean matchAll) {
+	public SampleFilter(VcfHeader header, String sample, String key, VariantFilter.Operator operator, Object value, boolean matchAll, boolean mandatory) {
 		this.key = key;
 		this.operator = operator;
 		this.value = value;
 		this.matchAll = matchAll;
 		this.matchAllSamples = !sample.equals("*");
+		this.mandatory = mandatory;
 		this.sampleIndices = getSampleIndices(header.getSamples(), sample);
 		this.sample = sample;
 	}
@@ -42,7 +48,7 @@ public class SampleFilter extends Filter {
 
 	private boolean filter(Variant variant, Integer index) {
 		final Object object = variant.getSampleInfo(index).get(key);
-		return filter(matchAll, operator, object, value);
+		return filter(mandatory, matchAll, operator, object, value);
 	}
 
 	@Override

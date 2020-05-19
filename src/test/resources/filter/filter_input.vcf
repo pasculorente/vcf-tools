@@ -1,0 +1,7 @@
+##fileformat=VCFv4.2
+##INFO=<ID=SYMBOL,Number=A,Type=String,Description="Gene symbol">
+##contig=<ID=1,length=248956422>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	10345	rs1	A	T	34.56	.	SYMBOL=A
+1	10450	rs2	T	TC	245.68	.	SYMBOL=B
+1	15482	.	T	G	1547.56	.	.

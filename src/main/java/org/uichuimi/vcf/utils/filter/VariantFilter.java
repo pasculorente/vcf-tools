@@ -3,9 +3,11 @@ package org.uichuimi.vcf.utils.filter;
 import org.uichuimi.vcf.header.DataFormatLine;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.io.MultipleVariantReader;
+import org.uichuimi.vcf.io.VariantOutput;
 import org.uichuimi.vcf.io.VariantWriter;
 import org.uichuimi.vcf.utils.common.FileUtils;
 import org.uichuimi.vcf.utils.common.GenomicProgressBar;
+import org.uichuimi.vcf.variant.Info;
 import org.uichuimi.vcf.variant.Variant;
 import picocli.CommandLine.ArgGroup;
 
@@ -36,6 +38,7 @@ import static picocli.CommandLine.Option;
 		abbreviateSynopsis = true,
 		separator = " ",
 		usageHelpAutoWidth = true)
+@SuppressWarnings({"unused", "FieldMayBeFinal"})
 public class VariantFilter implements Callable<Void> {
 
 	@Option(names = {"-V", "--version"}, versionHelp = true, description = "display version info")
@@ -43,6 +46,10 @@ public class VariantFilter implements Callable<Void> {
 
 	@Option(names = {"-h", "--help"}, usageHelp = true, description = "display this help message")
 	private boolean usage;
+
+	@Option(names = {"--verbose", "-v"},
+			description = "Set verbose mode. When false, only errors and warnings will be displayed")
+	private boolean verbose = false;
 
 	@ArgGroup(validate = false, exclusive = false, heading = "@|bold Input and output options:|@%n")
 	private IOOptions io = new IOOptions();
@@ -60,8 +67,8 @@ public class VariantFilter implements Callable<Void> {
 						"specified, output will be written to standard output (stdout).")
 		private File output;
 
-		IOOptions() {
-		}
+		@Option(names = {"--output-format"}, defaultValue = "VCF")
+		private FileFormat format;
 	}
 
 	@ArgGroup(validate = false,
@@ -131,7 +138,10 @@ public class VariantFilter implements Callable<Void> {
 					" number or string. operator and value are optional for boolean keys.%n" +
 					"If an INFO field is an array (A, G, R or .) all values must match the" +
 					" filter, to make the filter pass in any of the values matches, then add" +
-					" an * (asterisk) in front of the operator." +
+					" an * (asterisk) in front of the operator.%n" +
+					"You can enforce a filter to be mandatory by prefixing it with an exclamation" +
+					" mark !. This will enforce the filter to actively match, i.e. does not " +
+					"accept null values.%n" +
 					"@|underline Examples:|@%n" +
 					"\t@|yellow -f|@ DP>5 (result will contain only variants which DP is greater" +
 					" than 5)%n" +
@@ -158,8 +168,10 @@ public class VariantFilter implements Callable<Void> {
 	public Void call() throws Exception {
 		final GenomicProgressBar bar = new GenomicProgressBar();
 		if (io.output == null) log = System.err;
-		if (sf.includeSamples != null && sf.excludeSamples != null)
-			log.println("Incompatible options --include-samples and --exclude-samples");
+		if (sf.includeSamples != null && sf.excludeSamples != null) {
+			log.println("ERROR: Incompatible options --include-samples and --exclude-samples");
+			return null;
+		}
 		long line = 0;
 		long passed = 0;
 		// Use standard output if no output is provided
@@ -170,40 +182,64 @@ public class VariantFilter implements Callable<Void> {
 		//  Use standard input if no input is provided
 		final List<InputStream> in = new ArrayList<>();
 		if (io.inputs != null) {
-			log.println(String.format("Detected %d input files: ", io.inputs.size()));
+			if (verbose) log.println(String.format("Detected %d input files: ", io.inputs.size()));
 			for (File file : io.inputs) {
 				in.add(FileUtils.getInputStream(file));
-				log.println(" - " + file);
+				if (verbose) log.println(" - " + file);
 			}
 		} else in.add(System.in);
 
 		Variant variant = null;
-		try (MultipleVariantReader reader = new MultipleVariantReader(in);
-		     VariantWriter writer = new VariantWriter(out)) {
+		VariantOutput writer;
+		if (io.format == FileFormat.VCF) {
+			writer = new VariantWriter(out);
+		} else {
+			writer = new TsvWriter(out);
+		}
+		try (MultipleVariantReader reader = new MultipleVariantReader(in); writer) {
 			// Create filters
 			createFilters(reader.getHeader());
 			final VcfHeader writerHeader = new VcfHeader(reader.getHeader());
 			setSamples(writerHeader);
 			writer.setHeader(writerHeader);
-			if (log == System.out) bar.start();
+			if (log == System.out && verbose) bar.start();
 			final Iterator<Variant> iterator = reader.mergedIterator();
 			while (iterator.hasNext()) {
 				line += 1;
 				variant = iterator.next();
 				if (applyFilters(variant)) {
-					writer.write(variant);
+					writer.write(convert(variant, writerHeader));
 					passed += 1;
 				}
-				if (log == System.out)
+				if (log == System.out && verbose)
 					bar.update(variant.getCoordinate(), String.format("%s %,12d", variant.getCoordinate().getChrom(), variant.getCoordinate().getPosition()));
 //				if (line == 10000) break;
 			}
 		} catch (Exception e) {
 			throw new Exception(String.format("At line %d, variant %s ", line, variant), e);
 		}
-		if (log == System.out) bar.stop();
-		log.printf("Read %d variants, %d passed%n", line, passed);
+		if (log == System.out && verbose) bar.stop();
+		if (verbose) log.printf("Read %d variants, %d passed%n", line, passed);
 		return null;
+	}
+
+	/**
+	 * Clones variant using new header
+	 */
+	private Variant convert(Variant variant, VcfHeader header) {
+		final Variant copy = new Variant(header, variant.getCoordinate(), variant.getReferences(), variant.getAlternatives());
+		variant.getInfo().forEach(copy::setInfo);
+		List<String> samples = header.getSamples();
+		for (int i = 0; i < samples.size(); i++) {
+			final String sample = samples.get(i);
+			final int from = variant.getHeader().getSamples().indexOf(sample);
+			final Info fromInfo = variant.getSampleInfo().get(from);
+			if (fromInfo != null) {
+				final Info target = copy.getSampleInfo(i);
+				fromInfo.forEach(target::set);
+			}
+		}
+		return copy;
 	}
 
 	private void setSamples(VcfHeader header) {
@@ -213,8 +249,9 @@ public class VariantFilter implements Callable<Void> {
 			header.getSamples().retainAll(sf.includeSamples);
 		else if (sf.excludeSamples != null)
 			header.getSamples().removeAll(sf.excludeSamples);
-		log.println(String.format("Found %d samples. Sending to output %d: %s",
-				size, header.getSamples().size(), header.getSamples()));
+		if (verbose)
+			log.println(String.format("Found %d samples. Sending to output %d: %s",
+					size, header.getSamples().size(), header.getSamples()));
 	}
 
 	private void createFilters(VcfHeader header) {
@@ -230,8 +267,10 @@ public class VariantFilter implements Callable<Void> {
 		mapGenotype(header, gts, sf.wildtype, GT.WILD);
 		mapGenotype(header, gts, sf.uncalled, GT.UNCALLED);
 		filters.add(new GenotypeFilter(header, gts));
-		if (!gts.isEmpty()) log.printf("Filtering genotypes:%n");
-		gts.forEach((sample, set) -> log.printf(" - %s: %s%n", sample, set));
+		if (verbose) {
+			if (!gts.isEmpty()) log.printf("Filtering genotypes:%n");
+			gts.forEach((sample, set) -> log.printf(" - %s: %s%n", sample, set));
+		}
 	}
 
 	private void mapGenotype(VcfHeader header, Map<String, Set<GT>> gts, List<String> samples, GT gt) {
@@ -245,6 +284,7 @@ public class VariantFilter implements Callable<Void> {
 	}
 
 	private static final Pattern PATTERN = Pattern.compile("" +
+			"(?<mandatory>!?)" +
 			"(?:(?<sample>\\w*|\\*)\\.)?" +
 			"(?<key>\\w+)" +
 			"(?:(?<any>\\*)?(?<operator>>=|<=|>|<|\\?|=|!=)" +
@@ -253,9 +293,10 @@ public class VariantFilter implements Callable<Void> {
 	private Filter createFilter(String pattern, VcfHeader header) {
 		final Matcher matcher = PATTERN.matcher(pattern);
 		if (!matcher.matches()) {
-			log.printf("Invalid filter format: %s%n", pattern);
+			log.printf("ERROR: Invalid filter format: %s%n", pattern);
 			System.exit(1);
 		}
+		final String mandatory = matcher.group("mandatory");
 		final String sample = matcher.group("sample");
 		final String key = matcher.group("key");
 		final String any = matcher.group("any");
@@ -267,7 +308,8 @@ public class VariantFilter implements Callable<Void> {
 		final DataFormatLine headerLine;
 		if (sample == null) {
 			// INFO
-			if (value == null) return new InfoFilter(key, Operator.EQ, true, matchAll);
+			if (value == null)
+				return new InfoFilter(key, Operator.EQ, true, matchAll, mandatory.equals("!"));
 			if (key.equals("CHROM"))
 				return new ChromosomeFilter(value, op);
 			if (key.equals("POS"))
@@ -281,17 +323,17 @@ public class VariantFilter implements Callable<Void> {
 			headerLine = header.getInfoHeader(key);
 			Object val = headerLine.getProperty(value).getValue();
 			if (val instanceof List) val = ((List) val).iterator().next();
-			return new InfoFilter(key, op, val, matchAll);
+			return new InfoFilter(key, op, val, matchAll, mandatory.equals("!"));
 		} else {
 			// FORMAT
 			if (value == null)
-				return new SampleFilter(header, sample, key, Operator.EQ, true, matchAll);
+				return new SampleFilter(header, sample, key, Operator.EQ, true, matchAll, mandatory.equals("!"));
 			if (!header.hasComplexHeader("FORMAT", key))
 				log.printf("WARNING: FORMAT %s not found (interpreting as String)%n", key);
 			headerLine = header.getFormatHeader(key);
 			Object val = headerLine.getProperty(value).getValue();
 			if (val instanceof List) val = ((List) val).iterator().next();
-			return new SampleFilter(header, sample, key, op, val, matchAll);
+			return new SampleFilter(header, sample, key, op, val, matchAll, mandatory.equals("!"));
 		}
 	}
 
@@ -300,8 +342,10 @@ public class VariantFilter implements Callable<Void> {
 		final List<Filter> filterList = new ArrayList<>();
 		for (String pattern : patterns) filterList.add(createFilter(pattern, header));
 		if (!filterList.isEmpty()) {
-			log.println("Filters:");
-			for (Filter filter : filterList) log.println(" - " + filter);
+			if (verbose) {
+				log.println("Filters:");
+				for (Filter filter : filterList) log.println(" - " + filter);
+			}
 			filters.addAll(filterList);
 		}
 	}
@@ -346,5 +390,9 @@ public class VariantFilter implements Callable<Void> {
 		boolean apply(Object a, Object b) {
 			return operation.apply(a, b);
 		}
+	}
+
+	private static enum FileFormat {
+		TSV, VCF
 	}
 }

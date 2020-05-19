@@ -35,7 +35,7 @@ public class SnpEffExtractor implements VariantConsumer {
 		if (ann == null) return;
 		// remove value from variant
 		variant.setInfo(ANN, null);
-		// http://snpeff.sourceforge.net/SnpEff_manual.html#inputº
+		// http://snpeff.sourceforge.net/SnpEff_manual.html#input
 		// Effect sort order. When multiple effects are reported, SnpEff sorts the effects the
 		// following way:
 		//
