@@ -16,4 +16,9 @@ public class ChromosomeFilter extends Filter {
 	boolean filter(Variant variant) {
 		return operator.apply(variant.getCoordinate().getChrom(), chrom);
 	}
+
+	@Override
+	public String toString() {
+		return String.format("CHROM %s %s", operator.getSymbol(), chrom);
+	}
 }

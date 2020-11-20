@@ -1,5 +1,6 @@
 package org.uichuimi.vcf.utils.filter;
 
+import org.jetbrains.annotations.NotNull;
 import org.uichuimi.vcf.header.DataFormatLine;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.io.MultipleVariantReader;
@@ -63,11 +64,13 @@ public class VariantFilter implements Callable<Void> {
 				split = ",")
 		private List<File> inputs;
 		@Option(names = {"-o", "--output"},
-				description = "Output file (only VCF, may be compressed). If no output is " +
-						"specified, output will be written to standard output (stdout).")
+				description = "Output file. If no output is specified, output will be written" +
+						" to standard output (stdout).")
 		private File output;
 
-		@Option(names = {"--output-format"}, defaultValue = "VCF")
+		@Option(names = {"--output-format"},
+				description = "Output format. If not specified, inferred by output extension." +
+						" Supported formats: {${COMPLETION-CANDIDATES}}")
 		private FileFormat format;
 	}
 
@@ -124,21 +127,23 @@ public class VariantFilter implements Callable<Void> {
 			paramLabel = "pattern",
 			arity = "1..*",
 			split = " ",
-			description = "Adds a INFO field filter in the form: %n" +
-					"\t[<sample>.]<key><operator><value>%n" +
-					"@|bold sample|@ is optional and must be followed by a dot, the filter " +
+			description = "Adds an INFO field filter in the form: %n" +
+					"\t[<SAMPLE>.]<KEY>[<FLAGS>]<OPERATOR><VALUE>%n" +
+					"@|bold SAMPLE:|@ is optional and must be followed by a dot, the filter " +
 					"will be applied to a FORMAT tag only for that sample. You can also leave" +
 					" it blank (just type the dot) and it will be applied to all samples or " +
 					"use an asterisk (*) to pass if any of the samples passes.%n" +
-					"@|bold key|@ must be one of INFO ids. Special keys are CHROM, POS," +
+					"@|bold KEY:|@ must be one of INFO ids. Special keys are CHROM, POS," +
 					" FILTER and QUAL%n" +
-					"@|bold operator|@, a math (<, <=, >, >=, =) or string (=, !=, ?) " +
+					"@|bold FLAGS:|@ A combination of ? and *. The ? flag means that null " +
+					"values (not present) are allowed. The * is used with array fields " +
+					"(A, G, R, . or N>1): if specified, it is enough with one value passing" +
+					" the filter, otherwise, all values in the array must match." +
+					"@|bold operator:|@ a math (<, <=, >, >=, =) or string (= equals, <> " +
+					"distinct, ~ contains) " +
 					"operator.%n" +
-					"@|bold value|@ is the comparing value for the specified key, usually a" +
+					"@|bold value:|@ is the comparing value for the specified key, usually a" +
 					" number or string. operator and value are optional for boolean keys.%n" +
-					"If an INFO field is an array (A, G, R or .) all values must match the" +
-					" filter, to make the filter pass in any of the values matches, then add" +
-					" an * (asterisk) in front of the operator.%n" +
 					"You can enforce a filter to be mandatory by prefixing it with an exclamation" +
 					" mark !. This will enforce the filter to actively match, i.e. does not " +
 					"accept null values.%n" +
@@ -154,7 +159,10 @@ public class VariantFilter implements Callable<Void> {
 					"\t@|yellow -f|@ .DP>5 (filters variants where ALL samples have DP greater" +
 					" than 5)%n" +
 					"\t@|yellow -f|@ NA001.GQ>=10 (sample NA001 must have GQ greater or equal to" +
-					" 10)")
+					" 10)%n" +
+					"\t@|yellow -f|@ DB (filters variants with DB flag)%n" +
+					"\t@|yellow -f|@ SYMBOL=LDLR (only variants with symbol name LDLR, variants" +
+					" without symbol are not included.)")
 	private List<String> patterns;
 
 	private final List<Filter> filters = new ArrayList<>();
@@ -190,12 +198,7 @@ public class VariantFilter implements Callable<Void> {
 		} else in.add(System.in);
 
 		Variant variant = null;
-		VariantOutput writer;
-		if (io.format == FileFormat.VCF) {
-			writer = new VariantWriter(out);
-		} else {
-			writer = new TsvWriter(out);
-		}
+		VariantOutput writer = getVariantOutput(out);
 		try (MultipleVariantReader reader = new MultipleVariantReader(in); writer) {
 			// Create filters
 			createFilters(reader.getHeader());
@@ -223,11 +226,33 @@ public class VariantFilter implements Callable<Void> {
 		return null;
 	}
 
+	@NotNull
+	private VariantOutput getVariantOutput(OutputStream out) {
+		if (io.format == null) {
+			if (io.output == null) {
+				return new VariantWriter(out);
+			}
+			if (io.output.getName().endsWith(".vcf") || io.output.getName().endsWith(".vcf.gz")) {
+				return new VariantWriter(out);
+			} else {
+				return new TsvWriter(out);
+			}
+		}
+		if (io.format == FileFormat.TSV) {
+			return new TsvWriter(out);
+		} else {
+			return new VariantWriter(out);
+		}
+	}
+
 	/**
 	 * Clones variant using new header
 	 */
 	private Variant convert(Variant variant, VcfHeader header) {
 		final Variant copy = new Variant(header, variant.getCoordinate(), variant.getReferences(), variant.getAlternatives());
+		copy.setQuality(variant.getQuality());
+		copy.getFilters().addAll(variant.getFilters());
+		copy.getIdentifiers().addAll(variant.getIdentifiers());
 		variant.getInfo().forEach(copy::setInfo);
 		List<String> samples = header.getSamples();
 		for (int i = 0; i < samples.size(); i++) {
@@ -284,11 +309,13 @@ public class VariantFilter implements Callable<Void> {
 	}
 
 	private static final Pattern PATTERN = Pattern.compile("" +
-			"(?<mandatory>!?)" +
 			"(?:(?<sample>\\w*|\\*)\\.)?" +
 			"(?<key>\\w+)" +
-			"(?:(?<any>\\*)?(?<operator>>=|<=|>|<|\\?|=|!=)" +
-			"(?<value>.+))?");
+			"(?<nulls>\\?)?" +
+			"(?<any>\\*)?" +
+			"(?:(?<operator><>|>=|<=|>|<|~|=)" +
+			"(?<value>.+))?"
+	);
 
 	private Filter createFilter(String pattern, VcfHeader header) {
 		final Matcher matcher = PATTERN.matcher(pattern);
@@ -296,20 +323,21 @@ public class VariantFilter implements Callable<Void> {
 			log.printf("ERROR: Invalid filter format: %s%n", pattern);
 			System.exit(1);
 		}
-		final String mandatory = matcher.group("mandatory");
+		final String nulls = matcher.group("nulls");
 		final String sample = matcher.group("sample");
 		final String key = matcher.group("key");
 		final String any = matcher.group("any");
 		final String operator = matcher.group("operator");
 		final String value = matcher.group("value");
 		final boolean matchAll = any == null;
+		final boolean acceptNulls = nulls != null;
 		final Operator op = Operator.getInstance(operator);
 
 		final DataFormatLine headerLine;
 		if (sample == null) {
 			// INFO
 			if (value == null)
-				return new InfoFilter(key, Operator.EQ, true, matchAll, mandatory.equals("!"));
+				return new InfoFilter(key, Operator.EQ, true, matchAll, acceptNulls);
 			if (key.equals("CHROM"))
 				return new ChromosomeFilter(value, op);
 			if (key.equals("POS"))
@@ -323,17 +351,17 @@ public class VariantFilter implements Callable<Void> {
 			headerLine = header.getInfoHeader(key);
 			Object val = headerLine.getProperty(value).getValue();
 			if (val instanceof List) val = ((List) val).iterator().next();
-			return new InfoFilter(key, op, val, matchAll, mandatory.equals("!"));
+			return new InfoFilter(key, op, val, matchAll, acceptNulls);
 		} else {
 			// FORMAT
 			if (value == null)
-				return new SampleFilter(header, sample, key, Operator.EQ, true, matchAll, mandatory.equals("!"));
+				return new SampleFilter(header, sample, key, Operator.EQ, true, matchAll, acceptNulls);
 			if (!header.hasComplexHeader("FORMAT", key))
 				log.printf("WARNING: FORMAT %s not found (interpreting as String)%n", key);
 			headerLine = header.getFormatHeader(key);
 			Object val = headerLine.getProperty(value).getValue();
 			if (val instanceof List) val = ((List) val).iterator().next();
-			return new SampleFilter(header, sample, key, op, val, matchAll, mandatory.equals("!"));
+			return new SampleFilter(header, sample, key, op, val, matchAll, acceptNulls);
 		}
 	}
 
@@ -365,8 +393,8 @@ public class VariantFilter implements Callable<Void> {
 		LT("<", (a, b) -> ((Number) a).doubleValue() < ((Number) b).doubleValue()),
 		GE(">=", (a, b) -> ((Number) a).doubleValue() >= ((Number) b).doubleValue()),
 		LE("<=", (a, b) -> ((Number) a).doubleValue() <= ((Number) b).doubleValue()),
-		NEQ("!=", (a, b) -> !a.equals(b)),
-		IN("?", (a, b) -> ((String) a).contains((String) b));
+		NEQ("<>", (a, b) -> !a.equals(b)),
+		IN("~", (a, b) -> ((String) a).contains((String) b));
 
 		private final String symbol;
 		private final BiFunction<? super Object, ? super Object, Boolean> operation;

@@ -20,15 +20,15 @@ public class SampleFilter extends Filter {
 	private final boolean matchAll;
 	private final boolean matchAllSamples;
 	private final String sample;
-	private final boolean mandatory;
+	private final boolean acceptNulls;
 
-	public SampleFilter(VcfHeader header, String sample, String key, VariantFilter.Operator operator, Object value, boolean matchAll, boolean mandatory) {
+	public SampleFilter(VcfHeader header, String sample, String key, VariantFilter.Operator operator, Object value, boolean matchAll, boolean acceptNulls) {
 		this.key = key;
 		this.operator = operator;
 		this.value = value;
 		this.matchAll = matchAll;
 		this.matchAllSamples = !sample.equals("*");
-		this.mandatory = mandatory;
+		this.acceptNulls = acceptNulls;
 		this.sampleIndices = getSampleIndices(header.getSamples(), sample);
 		this.sample = sample;
 	}
@@ -48,7 +48,7 @@ public class SampleFilter extends Filter {
 
 	private boolean filter(Variant variant, Integer index) {
 		final Object object = variant.getSampleInfo(index).get(key);
-		return filter(mandatory, matchAll, operator, object, value);
+		return filter(acceptNulls, matchAll, operator, object, value);
 	}
 
 	@Override

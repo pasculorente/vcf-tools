@@ -1,0 +1,4 @@
+Chromosome	Position	id	Reference	Alternative	Quality	Gene	Consequence	Type	GMAF
+1	10345	rs1	A	T	34.56	A	intergenic		
+1	10450	rs2	T	TC	245.68	B			0.254
+1	15482		T	G	1547.56				

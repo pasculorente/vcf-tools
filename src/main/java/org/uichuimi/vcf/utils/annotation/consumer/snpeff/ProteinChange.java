@@ -23,6 +23,7 @@ public class ProteinChange {
 		final AllelesToken token = new AllelesToken();
 		if (!token.consume(value)) return null;
 		return token.getValue().getChanges().get(0);
+		// http://varnomen.hgvs.org/recommendations/protein/
 		// substitution
 		// (amino)(position)(amino)
 		//  missense: Trp24Cys

@@ -19,18 +19,18 @@ class VariantFilterTest {
 		System.setIn(input);
 		Main.main(new String[]{"filter", "-f", "SYMBOL=A",  "-o", output.toAbsolutePath().toString()});
 		try (VariantReader reader = new VariantReader(output.toFile())) {
-			Assertions.assertEquals(2, reader.variants().count());
+			Assertions.assertEquals(1, reader.variants().count());
 		}
 	}
 
 	@Test
-	public void mandatory() throws IOException {
+	public void nullsAllowed() throws IOException {
 		final InputStream input = getClass().getResourceAsStream("/filter/filter_input.vcf");
 		final Path output = Files.createTempFile("filter_output_", ".vcf");
 		System.setIn(input);
-		Main.main(new String[]{"filter", "-f", "!SYMBOL=A",  "-o", output.toAbsolutePath().toString()});
+		Main.main(new String[]{"filter", "-f", "SYMBOL?=A",  "-o", output.toAbsolutePath().toString()});
 		try (VariantReader reader = new VariantReader(output.toFile())) {
-			Assertions.assertEquals(1, reader.variants().count());
+			Assertions.assertEquals(2, reader.variants().count());
 		}
 	}
 

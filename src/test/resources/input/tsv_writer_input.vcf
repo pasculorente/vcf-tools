@@ -1,0 +1,9 @@
+##fileformat=VCFv4.2
+##INFO=<ID=SYMBOL,Number=A,Type=String,Description="Gene symbol">
+##INFO=<ID=CONS,Number=A,Type=String,Description="Ensembl VEP consequence">
+##INFO=<ID=KG_AF,Number=A,Type=String,Description="Allele frequency for 1000 genomes phase 3 (AFR|AMR|EAS|EUR|SAS)">
+##contig=<ID=1,length=248956422>
+#CHROM	POS	ID	REF	ALT	QUAL	FILTER	INFO
+1	10345	rs1	A	T	34.56	.	SYMBOL=A;CONS=intergenic
+1	10450	rs2	T	TC	245.68	.	SYMBOL=B;KG_AF=0.254
+1	15482	.	T	G	1547.56	.	.

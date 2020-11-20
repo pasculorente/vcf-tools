@@ -181,6 +181,9 @@ public class Neo4jTablesWriter implements VariantConsumer {
 	}
 
 	private boolean filter(Variant variant, int r, int a) {
+		final List<String> cons = variant.getInfo("CONS");
+		if (cons == null || cons.size() < a || cons.get(a) == null || cons.get(a).equals("intergenic_variant"))
+		    return false;
 		if (variant.getAlternatives().get(a).equals("*")) return false;
 		// variant passes if there is at least
 		//      one homozygous sample with dp >= 5
@@ -258,7 +261,6 @@ public class Neo4jTablesWriter implements VariantConsumer {
 			final String alleleDepth = getAlleleDepth(r, absoluteA, sampleInfo);
 			final int readDepth = getReadDepth(sampleInfo);
 			table.write(sample, variantId, alleleDepth, readDepth);
-
 		}
 	}
 
@@ -268,7 +270,7 @@ public class Neo4jTablesWriter implements VariantConsumer {
 		if (freqs == null) return null;
 		if (freqs.size() <= a) return null;
 		final String fr = freqs.get(a);
-		if (fr.equals(VcfConstants.EMPTY_VALUE)) return null;
+		if (fr == null || fr.equals(VcfConstants.EMPTY_VALUE)) return null;
 		final String[] values = fr.split(AnnotationConstants.ESCAPED_DELIMITER);
 		Double max = null;
 		for (int p = 0; p < populations.size(); p++) {

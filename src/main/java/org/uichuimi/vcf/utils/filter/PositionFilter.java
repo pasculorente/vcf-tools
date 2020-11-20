@@ -15,4 +15,11 @@ public class PositionFilter extends Filter {
 	boolean filter(Variant variant) {
 		return operator.apply(pos, variant.getCoordinate().getPosition());
 	}
+
+
+	@Override
+	public String toString() {
+		return String.format("POSITION %s %,2d", operator.getSymbol(), pos);
+	}
+
 }

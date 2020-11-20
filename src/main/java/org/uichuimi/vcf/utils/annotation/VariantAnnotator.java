@@ -236,8 +236,11 @@ class VariantAnnotator implements Callable<Void> {
 				log.println(" - Export VCF to custom output stream");
 				consumers.add(new VcfWriter(outputStream, namespace));
 			} else {
-				log.println(" - Export VCF to standard output");
-				consumers.add(new VcfWriter(System.out, namespace));
+				// No output specified, default to System.out, only if no other output option is specified, like neo4j
+				if (neo4j == null) {
+					log.println(" - Export VCF to standard output");
+					consumers.add(new VcfWriter(System.out, namespace));
+				}
 			}
 
 			// Initialize consumers

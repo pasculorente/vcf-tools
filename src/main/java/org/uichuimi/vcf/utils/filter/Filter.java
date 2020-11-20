@@ -8,8 +8,8 @@ public abstract class Filter {
 
 	abstract boolean filter(Variant variant);
 
-	protected boolean filter(boolean mandatory, boolean matchAll, VariantFilter.Operator operator, Object object, Object value) {
-		if (object == null) return !mandatory;
+	protected boolean filter(boolean acceptNulls, boolean matchAll, VariantFilter.Operator operator, Object object, Object value) {
+		if (object == null) return acceptNulls;
 		if (object instanceof List) {
 			final List<?> list = (List<?>) object;
 			return matchAll

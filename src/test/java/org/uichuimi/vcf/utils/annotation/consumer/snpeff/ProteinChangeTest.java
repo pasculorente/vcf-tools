@@ -2,14 +2,8 @@ package org.uichuimi.vcf.utils.annotation.consumer.snpeff;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.uichuimi.vcf.io.VariantReader;
-import org.uichuimi.vcf.utils.annotation.AnnotationConstants;
-import org.uichuimi.vcf.variant.Variant;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 class ProteinChangeTest {
 
@@ -62,38 +56,38 @@ class ProteinChangeTest {
 		int x = 7;
 	}
 
-	@Test
-	void testFromFile() {
-		final File file = new File("/media/pascual/Resources/uichuimi/snpeff/variants.vcf.gz");
-		final long start = System.nanoTime();
-		try (VariantReader reader = new VariantReader(file)) {
-			final long headers = reader.getHeader().toString().lines().count();
-			long number = headers;
-			for (Variant variant : reader) {
-				number += 1;
-				final List<String> ann = variant.getInfo("ANN");
-				if (ann == null) continue;
-				for (String element : ann) {
-					final String[] values = element.split(AnnotationConstants.ESCAPED_DELIMITER);
-					if (values.length <= 10) continue;
-					final String hgvsp = values[10];
-					if (hgvsp.isBlank()) continue;
-					if (!hgvsp.startsWith("p.")) {
-						System.err.println(number + ": " + ann);
-						break;
-					}
-					final ProteinChange change = ProteinChange.getInstance(hgvsp.substring("p.".length()));
-					if (change == null) {
-						System.err.println(number + ": " + ann);
-						break;
-					}
-				}
-			}
-			final long elapsed = System.nanoTime() - start;
-			System.out.printf("%d (%d)%n", number - headers, TimeUnit.NANOSECONDS.toSeconds(elapsed));
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
+//	@Test
+//	void testFromFile() {
+//		final File file = new File("/media/pascual/Resources/uichuimi/snpeff/variants.vcf.gz");
+//		final long start = System.nanoTime();
+//		try (VariantReader reader = new VariantReader(file)) {
+//			final long headers = reader.getHeader().toString().lines().count();
+//			long number = headers;
+//			for (Variant variant : reader) {
+//				number += 1;
+//				final List<String> ann = variant.getInfo("ANN");
+//				if (ann == null) continue;
+//				for (String element : ann) {
+//					final String[] values = element.split(AnnotationConstants.ESCAPED_DELIMITER);
+//					if (values.length <= 10) continue;
+//					final String hgvsp = values[10];
+//					if (hgvsp.isBlank()) continue;
+//					if (!hgvsp.startsWith("p.")) {
+//						System.err.println(number + ": " + ann);
+//						break;
+//					}
+//					final ProteinChange change = ProteinChange.getInstance(hgvsp.substring("p.".length()));
+//					if (change == null) {
+//						System.err.println(number + ": " + ann);
+//						break;
+//					}
+//				}
+//			}
+//			final long elapsed = System.nanoTime() - start;
+//			System.out.printf("%d (%d)%n", number - headers, TimeUnit.NANOSECONDS.toSeconds(elapsed));
+//		} catch (IOException e) {
+//			e.printStackTrace();
+//		}
+//	}
 
 }
