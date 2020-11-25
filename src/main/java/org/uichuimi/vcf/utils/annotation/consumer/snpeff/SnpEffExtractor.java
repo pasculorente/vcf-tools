@@ -2,6 +2,7 @@ package org.uichuimi.vcf.utils.annotation.consumer.snpeff;
 
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
+import org.uichuimi.vcf.header.InfoHeaderLine;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.utils.annotation.consumer.VariantConsumer;
 import org.uichuimi.vcf.utils.annotation.gff.Gene;
@@ -17,7 +18,7 @@ public class SnpEffExtractor implements VariantConsumer {
 
 	private static final String ANN = "ANN";
 	private static final String INTERGENIC_VARIANT = "intergenic_variant";
-	private GeneMap geneMap;
+	private final GeneMap geneMap;
 
 	public SnpEffExtractor(GeneMap geneMap) {
 		this.geneMap = geneMap;
@@ -27,6 +28,14 @@ public class SnpEffExtractor implements VariantConsumer {
 	public void start(VcfHeader header) {
 		if (!header.hasComplexHeader("INFO", ANN))
 			System.err.println(" - WARNING: No ANN header line found");
+		header.addHeaderLine(new InfoHeaderLine(ENSG, "A", "String", "Gene Ensembl identifier"));
+		header.addHeaderLine(new InfoHeaderLine(ENST, "A", "String", "Transcript Ensembl identifier"));
+		header.addHeaderLine(new InfoHeaderLine(BIO, "A", "String", "Gene biotype"));
+		header.addHeaderLine(new InfoHeaderLine(FT, "A", "String", "Feature type"));
+		header.addHeaderLine(new InfoHeaderLine(SYMBOL, "A", "String", "Feature type"));
+		header.addHeaderLine(new InfoHeaderLine(CONS, "A", "String", "Most sever consequence"));
+		header.addHeaderLine(new InfoHeaderLine(HGVS, "A", "String", "protein change in hgvs format"));
+		header.addHeaderLine(new InfoHeaderLine(AMINO, "A", "String", "Aminoacid change"));
 	}
 
 	@Override
@@ -57,6 +66,7 @@ public class SnpEffExtractor implements VariantConsumer {
 			setAlleleInfo(variant, i, FT, annotation.featureType);
 			setAlleleInfo(variant, i, SYMBOL, annotation.symbol);
 			setAlleleInfo(variant, i, CONS, annotation.effects.get(0));
+			setAlleleInfo(variant, i, HGVS, annotation.hgvsP);
 			if (annotation.hgvsP != null && (!variant.getInfo().contains(AMINO)
 					|| variant.<List<String>>getInfo(AMINO).size() <= i
 					|| variant.<List<String>>getInfo(AMINO).get(i) == null)) {
@@ -94,6 +104,7 @@ public class SnpEffExtractor implements VariantConsumer {
 
 	/**
 	 * Snpeff does not always contain proper ENSG in gene id
+	 *
 	 * @param name
 	 * @return
 	 */

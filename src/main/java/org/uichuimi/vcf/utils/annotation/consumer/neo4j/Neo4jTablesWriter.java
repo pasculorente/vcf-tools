@@ -55,7 +55,8 @@ public class Neo4jTablesWriter implements VariantConsumer {
 
 	private static final List<String> DATABASES = List.of("1000G", "gnomAD_genomes", "gnomAD_exomes", "ExAC");
 	private static final List<String> KEYS = List.of("KG_AF", "GG_AF", "GE_AF", "EX_AF");
-	private static final List<List<String>> POPULATIONS = List.of(KGenomesAnnotator.POPULATIONS,
+	private static final List<List<String>> POPULATIONS = List.of(
+			KGenomesAnnotator.POPULATIONS,
 			GnomadGenomeAnnotator.POPULATIONS,
 			GnomadExomeAnnotator.POPULATIONS,
 			ExACAnnotator.POPULATIONS);

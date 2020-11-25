@@ -40,6 +40,10 @@ public class AnnotationConstants {
 	 */
 	public static final String BIO = "BIO";
 	/**
+	 * ID for hgvs change
+	 */
+	public static final String HGVS = "HGVS";
+	/**
 	 * ID for genotype FORMAT column.
 	 */
 	public static final String GT = "GT";
