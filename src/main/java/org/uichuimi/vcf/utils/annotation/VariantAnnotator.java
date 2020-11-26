@@ -89,6 +89,9 @@ class VariantAnnotator implements Callable<Void> {
 	@Option(names = {"--dbsnp"}, description = "Dbsnp file from NCBI (ftp://ftp.ncbi.nih.gov/snp/latest_release/VCF/GCF_000001405.38.gz)")
 	private File dbsnp;
 
+	@Option(names = {"-a", "--annotations"}, description = "VCF file with annotations to add FORMAT -> filename=COL1,COL2 or filename=COL1:ALIAS,COL2")
+	private List<String> annotations;
+
 	private GeneMap geneMap;
 	private OutputStream outputStream;
 
@@ -219,6 +222,26 @@ class VariantAnnotator implements Callable<Void> {
 				log.printf(" - Adding rs identifier from dbSNP (%s)%n", dbsnp);
 				consumers.add(new DbsnpAnnotator(dbsnp));
 			}
+			if (annotations != null) {
+				for (String annotation : annotations) {
+					final String[] split = annotation.split("=");
+					final String filename = split[0];
+					final String columnSpec = split[1];
+					final File file = new File(filename);
+					final List<ColumnSpec> columnSpecs = new ArrayList<>();
+					for (String colSpec : columnSpec.split(",")) {
+						final String[] split1 = colSpec.split(":");
+						final String srcCol = split1[0];
+						final String tgtCol = split1.length > 1 ? split1[1] : srcCol;
+						columnSpecs.add(new ColumnSpec(srcCol, tgtCol));
+					}
+					final VcfAnnotator vcfAnnotator = new VcfAnnotator(file, columnSpecs);
+					final String cols = vcfAnnotator.getColumnSpecs().stream().map(ColumnSpec::getSourceColumn).collect(Collectors.joining(", "));
+					log.println(" - Add annotations [" + cols + "] from " + filename);
+					consumers.add(vcfAnnotator);
+				}
+
+			}
 			// 2. Modifier consumers
 			if (compute) {
 				log.println(" - DP and AN (global) and AF and AC (per allele) will be recomputed");
@@ -306,6 +329,10 @@ class VariantAnnotator implements Callable<Void> {
 		if (compute) builder.append(" --compute-stats");
 		if (snpeff != null) builder.append(" --snpeff");
 		if (dbsnp != null) builder.append(" --dbsnp ").append(dbsnp);
+		if (annotations != null)
+			for (String annotation : annotations)
+			builder.append(" --annotations").append(annotation);
+
 		return builder.toString();
 	}
 

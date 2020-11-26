@@ -32,7 +32,7 @@ public class FileUtils {
 			final ZipFile zipFile = new ZipFile(file);
 			final ZipEntry zipEntry = zipFile.entries().nextElement();
 			return zipFile.getInputStream(zipEntry);
-		} else if (file.getName().endsWith(".gz")) {
+		} else if (file.getName().endsWith(".gz") || file.getName().endsWith(".bgz")) {
 			return new GZIPInputStream(new FileInputStream(file));
 		} else return new FileInputStream(file);
 	}
