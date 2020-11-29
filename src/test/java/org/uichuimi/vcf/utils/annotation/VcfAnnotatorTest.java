@@ -19,7 +19,7 @@ public class VcfAnnotatorTest {
 	@Test
 	public void annotate() throws IOException {
 		final InputStream resource = getClass().getResourceAsStream("/input/vcf_annotator_ann.vcf");
-		final List<ColumnSpec> columnSpecs = List.of(new ColumnSpec("CONS", "CONS"));
+		final List<ColumnSpec> columnSpecs = List.of(new ColumnSpec("CONS", "CONS"), new ColumnSpec("AN", "AN"));
 		final VcfAnnotator annotator = new VcfAnnotator(resource, columnSpecs);
 		final ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 		try (VariantReader reader = new VariantReader(getClass().getResourceAsStream("/input/vcf_annotator_variants.vcf"))) {

@@ -331,7 +331,7 @@ class VariantAnnotator implements Callable<Void> {
 		if (dbsnp != null) builder.append(" --dbsnp ").append(dbsnp);
 		if (annotations != null)
 			for (String annotation : annotations)
-			builder.append(" --annotations").append(annotation);
+			builder.append(" --annotations ").append(annotation);
 
 		return builder.toString();
 	}
