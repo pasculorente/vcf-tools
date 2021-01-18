@@ -1,5 +1,7 @@
 package org.uichuimi.vcf.utils.common;
 
+import htsjdk.samtools.util.BlockCompressedOutputStream;
+
 import java.io.*;
 import java.util.zip.*;
 
@@ -56,6 +58,8 @@ public class FileUtils {
 	public static OutputStream getOutputStream(File file) throws IOException {
 		if (file.getName().endsWith(".zip")) {
 			return new ZipOutputStream(new FileOutputStream(file));
+		} else if (file.getName().endsWith(".vcf.gz")) {
+			return new BlockCompressedOutputStream(file);
 		} else if (file.getName().endsWith(".gz")) {
 			return new GZIPOutputStream(new FileOutputStream(file));
 		} else return new FileOutputStream(file);

@@ -79,6 +79,12 @@ public class AnnotationConstants {
 	 */
 	public static final String ESCAPED_DELIMITER = "\\|";
 	/**
+	 *
+	 */
+	public static String dbNSFP_SIFT = "dbNSFP_SIFT_score";
+	public static String dbNSFP_POLYPHEN = "dbNSFP_Polyphen2_HVAR_score";
+	public static String dbNSFP_HGVSp = "dbNSFP_HGVSp_VEP";
+	/**
 	 * Order of consequences by severity (most severe to least severe)
 	 */
 	public static final List<String> CONS_SEVERITY = List.of(

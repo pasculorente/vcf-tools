@@ -1,5 +1,6 @@
 package org.uichuimi.vcf.utils.annotation;
 
+import org.jetbrains.annotations.NotNull;
 import org.uichuimi.vcf.header.SimpleHeaderLine;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.io.MultipleVariantReader;
@@ -11,11 +12,13 @@ import org.uichuimi.vcf.utils.annotation.consumer.vep.VepAnnotator;
 import org.uichuimi.vcf.utils.annotation.gff.GeneMap;
 import org.uichuimi.vcf.utils.common.GenomeProgress;
 import org.uichuimi.vcf.utils.common.GenomicProgressBar;
+import org.uichuimi.vcf.utils.exception.VcfException;
 import org.uichuimi.vcf.variant.Chromosome;
 import org.uichuimi.vcf.variant.Coordinate;
 import org.uichuimi.vcf.variant.Variant;
 
 import java.io.File;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.util.ArrayList;
@@ -224,20 +227,7 @@ class VariantAnnotator implements Callable<Void> {
 			}
 			if (annotations != null) {
 				for (String annotation : annotations) {
-					final String[] split = annotation.split("=");
-					final String filename = split[0];
-					final String columnSpec = split[1];
-					final File file = new File(filename);
-					final List<ColumnSpec> columnSpecs = new ArrayList<>();
-					for (String colSpec : columnSpec.split(",")) {
-						final String[] split1 = colSpec.split(":");
-						final String srcCol = split1[0];
-						final String tgtCol = split1.length > 1 ? split1[1] : srcCol;
-						columnSpecs.add(new ColumnSpec(srcCol, tgtCol));
-					}
-					final VcfAnnotator vcfAnnotator = new VcfAnnotator(file, columnSpecs);
-					final String cols = vcfAnnotator.getColumnSpecs().stream().map(ColumnSpec::getSourceColumn).collect(Collectors.joining(", "));
-					log.println(" - Add annotations [" + cols + "] from " + filename);
+					final VcfAnnotator vcfAnnotator = createVcfAnnotator(log, annotation);
 					consumers.add(vcfAnnotator);
 				}
 
@@ -271,7 +261,13 @@ class VariantAnnotator implements Callable<Void> {
 				bar.start();
 				bar.update(0.0, "Initializing...");
 			}
-			consumers.forEach(consumer -> consumer.start(reader.getHeader()));
+			consumers.forEach(consumer -> {
+				try {
+					consumer.start(reader.getHeader());
+				} catch (VcfException e) {
+					e.printStackTrace();
+				}
+			});
 
 			// Iterate over input
 			while (reader.hasNext()) {
@@ -309,6 +305,25 @@ class VariantAnnotator implements Callable<Void> {
 			log.printf("%,d sites processed (%,d sites per second)%n", line, sitesPerSecond);
 		}
 		return null;
+	}
+
+	@NotNull
+	private VcfAnnotator createVcfAnnotator(PrintStream log, String annotation) throws IOException {
+		final String[] split = annotation.split("=");
+		final String filename = split[0];
+		final String columnSpec = split[1];
+		final File file = new File(filename);
+		final List<ColumnSpec> columnSpecs = new ArrayList<>();
+		for (String colSpec : columnSpec.split(",")) {
+			final String[] split1 = colSpec.split(":");
+			final String srcCol = split1[0];
+			final String tgtCol = split1.length > 1 ? split1[1] : srcCol;
+			columnSpecs.add(new ColumnSpec(srcCol, tgtCol));
+		}
+		final VcfAnnotator vcfAnnotator = new VcfAnnotator(file, columnSpecs);
+		final String cols = vcfAnnotator.getColumnSpecs().stream().map(ColumnSpec::getSourceColumn).collect(Collectors.joining(", "));
+		log.println(" - Add annotations [" + cols + "] from " + filename);
+		return vcfAnnotator;
 	}
 
 	private void writeCommandLine(VcfHeader header) {
