@@ -41,7 +41,7 @@ public class DbNSPFPAnnotator implements VariantConsumer {
 
 	/**
 	 * -l list of fields to annotate
-	 * -t first|all|tag, default all
+	 * -t first|all|<ID>, default all
 	 *
 	 * @param dbnsfp dbnsfp file
 	 * @param fields list of fields to annotate
@@ -56,8 +56,15 @@ public class DbNSPFPAnnotator implements VariantConsumer {
 
 	@Override
 	public void start(VcfHeader header) throws VcfException {
-		// Check tag argument
 		// Sets 'Number' in INFO fields and transformer function
+		// Number: 1 if tag is first or all, . otherwise
+		//  tag == all   ->  .
+		//  tag == first ->  1
+		//  tag == <ID>  ->  1
+		// Transformer function:
+		//  tag == all   ->  values
+		//  tag == first ->  values[0]
+		//  tag == <ID>  ->  values[transcripts.indexOf(info[ID])]
 		final String number;
 		if (tag.equalsIgnoreCase("all")) {
 			number = ".";
@@ -135,7 +142,6 @@ public class DbNSPFPAnnotator implements VariantConsumer {
 			}
 			annotation = next(variant);
 		}
-
 	}
 
 	private void annotate(String[] annotation, Variant variant) {

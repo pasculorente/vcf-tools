@@ -83,7 +83,7 @@ public class DbnsfpCommand implements Callable<Void> {
 					final double progress = GenomeProgress.getProgress(coordinate);
 					final long elapsed = TimeUnit.NANOSECONDS.toSeconds(bar.getElapsedNanos());
 					final long sitesPerSecond = line / (1 + elapsed); // avoid division by 0
-					final String message = String.format("%,d (%d sites/sec) %s %,d", line, sitesPerSecond, coordinate.getChrom(), coordinate.getPosition());
+					final String message = String.format("%,d (%d sites/sec) %s %,12d", line, sitesPerSecond, coordinate.getChrom(), coordinate.getPosition());
 					bar.update(progress, message);
 				}
 
