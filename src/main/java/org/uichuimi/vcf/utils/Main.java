@@ -1,6 +1,7 @@
 package org.uichuimi.vcf.utils;
 
 import org.uichuimi.vcf.utils.annotation.VariantAnnotator;
+import org.uichuimi.vcf.utils.clinvar.ClinvarExtract;
 import org.uichuimi.vcf.utils.dbsnp.DbnsfpCommand;
 import org.uichuimi.vcf.utils.filter.VariantFilter;
 import picocli.CommandLine;
@@ -14,7 +15,7 @@ import static picocli.CommandLine.usage;
 @Command(name = "vcf-utils",
 		version = "vcf-utils version 1.0",
 		description = "umpteenth package with tools to work with vcf files",
-		subcommands = {VariantAnnotator.class, VariantFilter.class, DbnsfpCommand.class})
+		subcommands = {VariantAnnotator.class, VariantFilter.class, DbnsfpCommand.class, ClinvarExtract.class})
 public class Main implements Callable<Void> {
 
 	public static void main(String[] args) {
