@@ -43,7 +43,7 @@ public class ClinvarExtract implements Callable<Void> {
 	private File variants;
 
 	@Option(names = {"-d", "--diseases"}, description = "If provided, a tsv file is created with these columns:\n" +
-			"[0]         id: clinvar id (database:identifier)\n" +
+			"[0]         id: disease id (database:identifier)\n" +
 			"[1]   database: source database\n" +
 			"[2] identifier: id in source database\n" +
 			"[3]       name: disease name")
@@ -137,11 +137,11 @@ public class ClinvarExtract implements Callable<Void> {
 			final String clnsig = rejoin(variant.getInfo("CLNSIG")).replace("_", " ");
 			final String clnsigconf = rejoin(variant.getInfo("CLNSIGCONF")).replace("_", " ");
 			final String clnrevstat = rejoin(variant.getInfo("CLNREVSTAT")).replace("_", " ");
-			final String id = idExtractor.apply(variant);
+			final String variantId = idExtractor.apply(variant);
 			for (final List<String> identifiers : clndisdb) {
-				for (String identifier : identifiers) {
-					if (!ignored.contains(identifier))
-						out.println(String.join("\t", id, identifier,
+				for (String diseaseId : identifiers) {
+					if (!ignored.contains(diseaseId))
+						out.println(String.join("\t", variantId, diseaseId,
 								clnsig.isEmpty() ? "." : clnsig,
 								clnsigconf.isEmpty() ? "." : clnsigconf,
 								clnrevstat.isEmpty() ? "." : clnrevstat));
