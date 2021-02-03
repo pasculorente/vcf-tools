@@ -1,5 +1,6 @@
 package org.uichuimi.vcf.utils.clinvar;
 
+import org.jetbrains.annotations.NotNull;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.io.VariantReader;
 import org.uichuimi.vcf.utils.FileUtils;
@@ -33,13 +34,12 @@ public class ClinvarExtract implements Callable<Void> {
 			"input is read", arity = "0..1")
 	private File input;
 
-	@Option(names = {"-o", "--variants"}, description = "If provided, a tsv file is created with 4 columns:\n" +
+	@Option(names = {"-o", "--variants"}, description = "If provided, a tsv file is created with columns:\n" +
 			"[0] variant: variant id (chrom:pos:ref:alt)\n" +
-			"[1]      rs: variant id (rs)\n" +
-			"[2] disease: disease id (database:identifier)\n" +
-			"[3]     sig: (benign, conflicts, ...)\n" +
-			"[4]    conf: conflicts explanation\n" +
-			"[5]  status: revision status")
+			"[1] disease: disease id (database:identifier)\n" +
+			"[2]     sig: (benign, conflicts, ...)\n" +
+			"[3]    conf: conflicts explanation\n" +
+			"[4]  status: revision status")
 	private File variants;
 
 	@Option(names = {"-d", "--diseases"}, description = "If provided, a tsv file is created with these columns:\n" +
@@ -66,17 +66,18 @@ public class ClinvarExtract implements Callable<Void> {
 		if (variants == null && diseases == null) {
 			throw new ParameterException(spec.commandLine(), "At least one of -o or -d is required");
 		}
-		if (variants != null) consumers.add(new VariantExtractor(variants, ignore, rs));
+		if (variants != null) consumers.add(new VariantExtractor(variants, ignore));
 		if (diseases != null) consumers.add(new DiseasesExtractor(diseases, ignore));
 		final InputStream in = input == null ? System.in : FileUtils.getInputStream(input);
 		try (VariantReader reader = new VariantReader(in)) {
+			for (VariantConsumer consumer : consumers) consumer.start(reader.getHeader());
 			for (Variant variant : reader) {
 				consumers.forEach(consumer -> consumer.accept(variant));
 			}
 			for (VariantConsumer consumer : consumers) consumer.close();
 		} catch (IOException e) {
 			usage(ClinvarExtract.class, System.out);
-		} catch (Exception e) {
+		} catch (Exception | VcfException e) {
 			e.printStackTrace();
 		}
 		return null;
@@ -98,21 +99,33 @@ public class ClinvarExtract implements Callable<Void> {
 
 		private final PrintStream out;
 		private final Set<String> ignored;
-		private final Function<Variant, String> rsExtractor;
+		private Function<Variant, String> idExtractor;
 
-		public VariantExtractor(File output, List<String> ignored, boolean rs) throws IOException {
+		public VariantExtractor(File output, List<String> ignored) throws IOException {
 			out = new PrintStream(FileUtils.getOutputStream(output));
 			this.ignored = Set.copyOf(ignored);
-			out.println(String.join("\t", ":START_ID(variant)", "identifier", ":END_ID(disease)", "significance", "conflicts", "status"));
-			rsExtractor = rs ? (variant -> variant.getInfo().contains("RS")
-					? ((List<String>) variant.getInfo("RS")).stream()
-					.map(rsid -> "rs" + rsid)
-					.collect(Collectors.joining(","))
-					: ".") : (variant -> String.join(",", variant.getIdentifiers()));
+			out.println(String.join("\t", ":START_ID(variant)", ":END_ID(disease)", "significance", "conflicts", "status"));
 		}
 
 		@Override
 		public void start(VcfHeader header) throws VcfException {
+			idExtractor = rs ? getRsExtractor(header)
+					: variant -> String.format("%s:%d:%s:%s",
+					variant.getCoordinate().getChrom(),
+					variant.getCoordinate().getPosition(),
+					variant.getReferences().get(0),
+					variant.getAlternatives().get(0));
+		}
+
+		@NotNull
+		private Function<Variant, String> getRsExtractor(VcfHeader header) {
+			return header.hasComplexHeader("INFO", "RS")
+					? (variant -> variant.getInfo().contains("RS")
+					? ((List<String>) variant.getInfo("RS")).stream()
+					.map(rsid -> "rs" + rsid)
+					.collect(Collectors.joining(","))
+					: ".")
+					: (variant -> String.join(",", variant.getIdentifiers()));
 		}
 
 		@Override
@@ -124,16 +137,11 @@ public class ClinvarExtract implements Callable<Void> {
 			final String clnsig = rejoin(variant.getInfo("CLNSIG")).replace("_", " ");
 			final String clnsigconf = rejoin(variant.getInfo("CLNSIGCONF")).replace("_", " ");
 			final String clnrevstat = rejoin(variant.getInfo("CLNREVSTAT")).replace("_", " ");
-			final String id = String.format("%s:%d:%s:%s",
-					variant.getCoordinate().getChrom(),
-					variant.getCoordinate().getPosition(),
-					variant.getReferences().get(0),
-					variant.getAlternatives().get(0));
-			final String rs = rsExtractor.apply(variant);
+			final String id = idExtractor.apply(variant);
 			for (final List<String> identifiers : clndisdb) {
 				for (String identifier : identifiers) {
 					if (!ignored.contains(identifier))
-						out.println(String.join("\t", id, rs, identifier,
+						out.println(String.join("\t", id, identifier,
 								clnsig.isEmpty() ? "." : clnsig,
 								clnsigconf.isEmpty() ? "." : clnsigconf,
 								clnrevstat.isEmpty() ? "." : clnrevstat));
@@ -181,9 +189,7 @@ public class ClinvarExtract implements Callable<Void> {
 						out.println(String.join("\t", identifier, src, id, name));
 					}
 				}
-
 			}
-
 		}
 
 		@Override
