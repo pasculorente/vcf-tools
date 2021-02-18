@@ -140,11 +140,14 @@ public class ClinvarExtract implements Callable<Void> {
 			final String variantId = idExtractor.apply(variant);
 			for (final List<String> identifiers : clndisdb) {
 				for (String diseaseId : identifiers) {
-					if (!ignored.contains(diseaseId))
+					if (!ignored.contains(diseaseId)) {
+						// MONDO ids have format MONDO:MONDO:0014578
+						diseaseId = diseaseId.replaceFirst("MONDO:", "");
 						out.println(String.join("\t", variantId, diseaseId,
 								clnsig.isEmpty() ? "." : clnsig,
 								clnsigconf.isEmpty() ? "." : clnsigconf,
 								clnrevstat.isEmpty() ? "." : clnrevstat));
+					}
 				}
 			}
 		}
