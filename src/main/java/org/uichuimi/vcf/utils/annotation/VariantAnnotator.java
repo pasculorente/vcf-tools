@@ -271,7 +271,7 @@ class VariantAnnotator implements Callable<Void> {
 
 			// Iterate over input
 			while (reader.hasNext()) {
-				variant = reader.nextMerged();
+				variant = reader.next();
 				final Coordinate coordinate = variant.getCoordinate();
 
 				// Apply every consumer

@@ -206,7 +206,7 @@ public class VariantFilter implements Callable<Void> {
 			setSamples(writerHeader);
 			writer.setHeader(writerHeader);
 			if (log == System.out && verbose) bar.start();
-			final Iterator<Variant> iterator = reader.mergedIterator();
+			final Iterator<Variant> iterator = reader.iterator();
 			while (iterator.hasNext()) {
 				line += 1;
 				variant = iterator.next();
