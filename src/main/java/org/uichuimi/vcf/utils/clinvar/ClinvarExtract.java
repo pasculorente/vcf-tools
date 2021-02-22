@@ -1,5 +1,6 @@
 package org.uichuimi.vcf.utils.clinvar;
 
+import org.apache.commons.lang.StringUtils;
 import org.jetbrains.annotations.NotNull;
 import org.uichuimi.vcf.header.VcfHeader;
 import org.uichuimi.vcf.io.VariantReader;
@@ -26,6 +27,16 @@ import static picocli.CommandLine.*;
 		description = "script that extracts diseases as a table from the file clinvar.vcf.gz")
 public class ClinvarExtract implements Callable<Void> {
 
+	private static final List<String> VARIANT_TO_DISEASE_COLUMNS = List.of(":START_ID(variant)", ":END_ID(disease)", "significance", "conflicts", "status");
+	private static final Map<String, String> SUBSTITUTIONS = Map.of(
+			"EFO:EFO_", "EFO:",
+			"Human_Phenotype_Ontology:HP:", "HP:",
+			"Human_Phenotype_Ontology:MONDO:", "MONDO:",
+			"MedGen:", "MEDGEN:",
+			"MeSH:", "MESH:",
+			"MONDO:MONDO:", "MONDO:",
+			"Orphanet:ORPHA", "Orphanet:"
+	);
 	@Spec
 	private CommandSpec spec;
 
@@ -87,6 +98,14 @@ public class ClinvarExtract implements Callable<Void> {
 		return list == null || list.isEmpty() ? "" : String.join(",", list);
 	}
 
+	/**
+	 * Given "a,b|c,d" vcf-io will split this as ["a", "b|c", "d"], using comma as delimiter. This method will rebuild
+	 * the original string "a,b|c,d" and split the string first by | and then by , resulting in a list of lists:
+	 * [["a", "b"], ["c", "d"]]
+	 *
+	 * @param list the bad split list of strings
+	 * @return a list of list with nested split fields
+	 */
 	private List<List<String>> resplit(List<String> list) {
 		if (list == null || list.isEmpty()) return List.of();
 		return Arrays.stream(String.join(",", list).split("\\|"))
@@ -104,7 +123,7 @@ public class ClinvarExtract implements Callable<Void> {
 		public VariantExtractor(File output, List<String> ignored) throws IOException {
 			out = new PrintStream(FileUtils.getOutputStream(output));
 			this.ignored = Set.copyOf(ignored);
-			out.println(String.join("\t", ":START_ID(variant)", ":END_ID(disease)", "significance", "conflicts", "status"));
+			out.println(String.join("\t", VARIANT_TO_DISEASE_COLUMNS));
 		}
 
 		@Override
@@ -138,16 +157,17 @@ public class ClinvarExtract implements Callable<Void> {
 			final String clnsigconf = rejoin(variant.getInfo("CLNSIGCONF")).replace("_", " ");
 			final String clnrevstat = rejoin(variant.getInfo("CLNREVSTAT")).replace("_", " ");
 			final String variantId = idExtractor.apply(variant);
-			for (final List<String> identifiers : clndisdb) {
-				for (String diseaseId : identifiers) {
-					if (!ignored.contains(diseaseId)) {
-						// MONDO ids have format MONDO:MONDO:0014578
-						diseaseId = diseaseId.replaceFirst("MONDO:", "");
-						out.println(String.join("\t", variantId, diseaseId,
-								clnsig.isEmpty() ? "." : clnsig,
-								clnsigconf.isEmpty() ? "." : clnsigconf,
-								clnrevstat.isEmpty() ? "." : clnrevstat));
-					}
+
+			for (final List<String> ids : clndisdb) {
+				final List<String> identifiers = ids.stream()
+						.map(ClinvarExtract.this::transformIdentifier)
+						.collect(Collectors.toList());
+				if (identifiers.isEmpty()) continue;
+				if (identifiers.stream().anyMatch(ignored::contains)) continue;
+				final String diseaseId = primaryIdentifier(identifiers);
+				if (StringUtils.isBlank(diseaseId)) continue;
+				if (!ignored.contains(diseaseId)) {
+					out.println(String.join("\t", variantId, diseaseId, clnsig, clnsigconf, clnrevstat));
 				}
 			}
 		}
@@ -158,6 +178,19 @@ public class ClinvarExtract implements Callable<Void> {
 		}
 	}
 
+	/**
+	 * In order to standardize identifiers,
+	 *
+	 * @param identifier
+	 * @return
+	 */
+	private String transformIdentifier(String identifier) {
+		for (Map.Entry<String, String> entry : SUBSTITUTIONS.entrySet())
+			if (identifier.startsWith(entry.getKey()))
+				return identifier.replaceFirst(entry.getKey(), entry.getValue());
+		return identifier;
+	}
+
 	private class DiseasesExtractor implements VariantConsumer {
 		final PrintStream out;
 		final Set<String> exported = new TreeSet<>();
@@ -166,7 +199,7 @@ public class ClinvarExtract implements Callable<Void> {
 		public DiseasesExtractor(File output, List<String> ignore) throws IOException {
 			out = new PrintStream(FileUtils.getOutputStream(output));
 			ignored = Set.copyOf(ignore);
-			out.println(String.join("\t", ":ID(disease)", "database", "identifier", "name"));
+			out.println(String.join("\t", ":ID(disease)", "xrefs", "name"));
 		}
 
 		@Override
@@ -180,18 +213,20 @@ public class ClinvarExtract implements Callable<Void> {
 			if (clndisdb.isEmpty()) return;
 			final List<List<String>> clndn = resplit(variant.getInfo("CLNDN"));
 			for (int i = 0; i < clndisdb.size(); i++) {
-				final List<String> identifiers = clndisdb.get(i);
+				final List<String> identifiers = clndisdb.get(i).stream()
+						.map(ClinvarExtract.this::transformIdentifier)
+						.collect(Collectors.toList());
+				if (identifiers.isEmpty()) continue;
+				if (identifiers.stream().anyMatch(ignored::contains)) continue;
 				final List<String> names = clndn.get(i);
 				final String name = String.join(",", names).replace("_", " ");
-				for (String identifier : identifiers) {
-					if (!ignored.contains(identifier) && !exported.contains(identifier)) {
-						exported.add(identifier);
-						final String[] split = identifier.split(":", 2);
-						final String src = split[0];
-						final String id = split[1];
-						out.println(String.join("\t", identifier, src, id, name));
-					}
-				}
+				final String primaryId = primaryIdentifier(identifiers);
+				if (exported.contains(primaryId)) continue;
+				final String xrefs = identifiers.stream()
+						.filter(s -> !s.equals(primaryId))
+						.collect(Collectors.joining(","));
+				exported.add(primaryId);
+				out.println(String.join("\t", primaryId, xrefs, name));
 			}
 		}
 
@@ -199,5 +234,17 @@ public class ClinvarExtract implements Callable<Void> {
 		public void close() {
 			out.close();
 		}
+	}
+
+	private String primaryIdentifier(List<String> identifiers) {
+		return identifiers.stream()
+				.filter(s -> s.startsWith("MONDO:"))
+				.findFirst()
+				.orElse(identifiers.stream()
+						.filter(s -> s.startsWith("MESH:"))
+						.findFirst()
+						.orElse(identifiers.stream()
+								.filter(s -> s.startsWith("OMIM:"))
+								.findFirst().orElse(identifiers.get(0))));
 	}
 }
